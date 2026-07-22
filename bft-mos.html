@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BJT & MOSFET — Complete Study Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:            #0a0d12;
+  --bg-panel:      #12161d;
+  --bg-panel-2:    #161b24;
+  --border:        #232a35;
+  --text:          #dde3ec;
+  --text-dim:      #8b93a3;
+  --text-faint:    #5b6474;
+
+  --steel:         #6f95bf;
+  --steel-dim:     #395269;
+  --steel-glow:    rgba(111,149,191,0.15);
+
+  --sage:          #8bab7f;
+  --sage-dim:      #3c4f36;
+  --sage-glow:     rgba(139,171,127,0.15);
+
+  --violet:        #a599d4;
+  --violet-dim:    #4a4468;
+  --violet-glow:   rgba(165,153,212,0.15);
+
+  --rust:          #c17a5e;
+  --rust-dim:      #5a3a2c;
+  --rust-glow:     rgba(193,122,94,0.15);
+
+  --amber:         #cfa860;
+  --amber-dim:     #5c4c2a;
+  --amber-glow:    rgba(207,168,96,0.15);
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+
+html{scroll-behavior:smooth;}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter', sans-serif;
+  font-size:15.5px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+
+::selection{ background:var(--steel-dim); color:#fff; }
+
+/* subtle grid texture on body */
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size:64px 64px;
+  pointer-events:none;
+  z-index:0;
+}
+
+h1,h2,h3,h4{ font-family:'Space Grotesk', sans-serif; font-weight:600; letter-spacing:-0.01em; }
+
+code, .mono, .eq{ font-family:'JetBrains Mono', monospace; }
+
+a{ color:inherit; }
+
+/* ===================== LAYOUT ===================== */
+.layout{ display:flex; max-width:1400px; margin:0 auto; position:relative; z-index:1;}
+
+/* ---- Sidebar ---- */
+.sidebar{
+  width:264px;
+  flex-shrink:0;
+  height:100vh;
+  position:sticky;
+  top:0;
+  padding:28px 18px 28px 28px;
+  border-right:1px solid var(--border);
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:22px;
+}
+.sidebar::-webkit-scrollbar{width:5px;}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border); border-radius:4px;}
+
+.brand{
+  display:flex; flex-direction:column; gap:4px;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--border);
+}
+.brand .tag{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--steel);
+}
+.brand h1{ font-size:19px; line-height:1.25; color:#f0f3f7; }
+.brand .sub{ font-size:12px; color:var(--text-faint); margin-top:2px;}
+
+.nav-group{ display:flex; flex-direction:column; gap:2px; }
+.nav-group-label{
+  font-family:'JetBrains Mono', monospace;
+  font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--text-faint);
+  margin:6px 0 4px 10px;
+}
+.navlink{
+  display:flex; align-items:baseline; gap:9px;
+  padding:6.5px 10px;
+  border-radius:7px;
+  font-size:13px;
+  color:var(--text-dim);
+  text-decoration:none;
+  border-left:2px solid transparent;
+  transition:background .15s ease, color .15s ease, border-color .15s ease;
+}
+.navlink .num{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); flex-shrink:0; width:16px;}
+.navlink:hover{ background:var(--bg-panel-2); color:var(--text); }
+.navlink.active{ background:var(--steel-glow); color:#f0f3f7; border-left-color:var(--steel); }
+.navlink.active .num{ color:var(--steel); }
+
+.sidebar-foot{
+  margin-top:auto;
+  padding-top:14px;
+  border-top:1px solid var(--border);
+  font-size:11px;
+  color:var(--text-faint);
+  line-height:1.5;
+}
+
+/* ---- Main ---- */
+main{ flex:1; min-width:0; padding:0 0 120px 0; }
+
+.hero{
+  padding:64px 56px 48px 56px;
+  border-bottom:1px solid var(--border);
+  position:relative;
+  overflow:hidden;
+}
+.hero::after{
+  content:"";
+  position:absolute; top:-140px; right:-140px;
+  width:420px; height:420px; border-radius:50%;
+  background:radial-gradient(circle, var(--steel-glow), transparent 70%);
+  pointer-events:none;
+}
+.hero .eyebrow{
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--sage);
+  display:flex; align-items:center; gap:8px;
+  margin-bottom:18px;
+}
+.hero .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--sage); box-shadow:0 0 8px var(--sage);}
+.hero h1{ font-size:40px; color:#f5f7fa; max-width:760px; line-height:1.15;}
+.hero h1 .accent{ color:var(--steel); }
+.hero p.lede{ margin-top:16px; max-width:640px; color:var(--text-dim); font-size:15.5px;}
+
+.hero .stats{ display:flex; gap:0; margin-top:32px; flex-wrap:wrap; }
+.hero .stat{ padding:0 28px 0 0; margin-right:28px; border-right:1px solid var(--border); }
+.hero .stat:last-child{ border-right:none; }
+.hero .stat .n{ font-family:'Space Grotesk',sans-serif; font-size:22px; color:var(--text); font-weight:600;}
+.hero .stat .l{ font-size:11px; color:var(--text-faint); margin-top:2px; letter-spacing:.02em;}
+
+/* ---- Section chrome ---- */
+section.chapter{ padding:52px 56px 8px 56px; border-bottom:1px solid var(--border); scroll-margin-top:20px; }
+.chapter-head{ display:flex; align-items:flex-start; gap:16px; margin-bottom:8px; }
+.chapter-head .chnum{
+  font-family:'JetBrains Mono',monospace;
+  font-size:13px; color:var(--bg);
+  background:var(--accent, var(--steel));
+  width:34px; height:34px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; font-weight:600;
+}
+.chapter-head h2{ font-size:26px; color:#f5f7fa; }
+.chapter-head .desc{ font-size:13.5px; color:var(--text-faint); margin-top:4px; }
+.chapter-body{ margin:28px 0 20px 50px; }
+.chapter-body > *:first-child{margin-top:0;}
+
+h3.subhead{ font-size:16.5px; color:var(--text); margin:34px 0 14px 0; display:flex; align-items:center; gap:9px;}
+h3.subhead .bar{ width:3px; height:16px; background:var(--accent,var(--steel)); border-radius:2px; display:inline-block;}
+h3.subhead .cap{ font-size:12px; font-weight:400; color:var(--text-faint); font-family:'Inter',sans-serif;}
+
+p{ color:var(--text-dim); margin-bottom:12px; max-width:760px; }
+p strong{ color:var(--text); font-weight:600; }
+ul, ol{ color:var(--text-dim); padding-left:20px; margin-bottom:14px; max-width:760px;}
+li{ margin-bottom:6px; }
+li strong{ color:var(--text);}
+
+/* ---- Grid of cards (mirrors slide layout) ---- */
+.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+.grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin:18px 0; }
+@media(max-width:900px){ .grid2, .grid3{ grid-template-columns:1fr; } }
+
+.card{
+  background:var(--bg-panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:18px 20px;
+}
+.card .card-title{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:13px; font-weight:600;
+  letter-spacing:.02em;
+  color:var(--text);
+  margin-bottom:10px;
+  padding-bottom:9px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:8px;
+}
+.card .card-title .sw{ width:9px; height:9px; border-radius:3px; flex-shrink:0;}
+.card p, .card ul{ font-size:13.5px; margin-bottom:0; }
+.card ul{ padding-left:16px; }
+.card li{ margin-bottom:5px; font-size:13.5px; }
+
+.card.steel{ border-color:var(--steel-dim); } .card.steel .card-title .sw{ background:var(--steel); }
+.card.sage{ border-color:var(--sage-dim); } .card.sage .card-title .sw{ background:var(--sage); }
+.card.violet{ border-color:var(--violet-dim); } .card.violet .card-title .sw{ background:var(--violet); }
+.card.rust{ border-color:var(--rust-dim); } .card.rust .card-title .sw{ background:var(--rust); }
+.card.amber{ border-color:var(--amber-dim); } .card.amber .card-title .sw{ background:var(--amber); }
+
+/* ---- Callouts ---- */
+.callout{
+  border-radius:10px; padding:14px 18px; margin:16px 0;
+  border-left:3px solid var(--accent, var(--steel));
+  background:var(--bg-panel-2);
+  max-width:760px;
+}
+.callout .lbl{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent,var(--steel)); margin-bottom:5px; display:block;}
+.callout p{ margin-bottom:0; font-size:13.5px; color:var(--text-dim); }
+.callout.warn{ --accent:var(--rust); }
+.callout.tip{ --accent:var(--sage); }
+.callout.rule{ --accent:var(--amber); }
+
+/* ---- Equation blocks ---- */
+.eqbox{
+  background:#0d1015;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px 20px;
+  margin:14px 0;
+  max-width:760px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:14px;
+  color:var(--steel);
+  overflow-x:auto;
+}
+.eqbox .line{ margin-bottom:4px; }
+.eqbox .line:last-child{ margin-bottom:0; }
+.eqbox .note{ color:var(--text-faint); font-family:'Inter',sans-serif; font-size:12px; }
+
+/* ---- Terminal / structure diagram (stacked layers) ---- */
+.stack{ display:flex; flex-direction:column; gap:2px; margin:16px 0; max-width:420px; }
+.stack .layer{
+  padding:10px 16px; border-radius:6px; font-size:12.5px; font-weight:600;
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:'JetBrains Mono',monospace;
+}
+.stack .tag{ font-size:10px; opacity:.65; font-weight:400;}
+
+/* ---- Region pills row ---- */
+.pillrow{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:16px 0; }
+.pill{ border-radius:10px; padding:12px 14px; border:1px solid var(--border); background:var(--bg-panel);}
+.pill .ph{ font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; letter-spacing:.04em; padding:3px 8px; border-radius:5px; display:inline-block; margin-bottom:8px;}
+.pill p{ font-size:12.5px; margin-bottom:3px; color:var(--text-dim); }
+@media(max-width:900px){ .pillrow{grid-template-columns:1fr;} }
+
+/* ---- Chart containers ---- */
+.chartwrap{
+  background:var(--bg-panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:18px 20px 10px 20px;
+  margin:18px 0;
+}
+.chartwrap .chart-title{ font-size:13px; font-weight:600; color:var(--text); margin-bottom:2px; font-family:'Space Grotesk',sans-serif;}
+.chartwrap .chart-sub{ font-size:11.5px; color:var(--text-faint); margin-bottom:12px; }
+.chart-canvas-box{ position:relative; height:280px; }
+.chart-canvas-box.short{ height:220px; }
+
+.chartgrid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:900px){ .chartgrid2{grid-template-columns:1fr;} }
+
+/* ---- Table ---- */
+.tablewrap{ overflow-x:auto; margin:18px 0; border:1px solid var(--border); border-radius:12px; }
+table{ width:100%; border-collapse:collapse; font-size:13px; min-width:640px;}
+thead th{
+  background:var(--bg-panel-2);
+  color:var(--text-faint);
+  font-family:'JetBrains Mono',monospace;
+  font-weight:500; font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  text-align:left; padding:11px 16px; border-bottom:1px solid var(--border);
+}
+tbody td{ padding:10px 16px; border-bottom:1px solid var(--border); color:var(--text-dim);}
+tbody tr:last-child td{ border-bottom:none; }
+tbody tr:hover{ background:var(--bg-panel-2); }
+tbody td:first-child{ color:var(--text); font-weight:500; }
+.tablewrap.dark thead th{ background:#161d28; color:var(--amber); }
+
+/* ---- interactive: gate charge slider demo ---- */
+.demo{
+  background:var(--bg-panel);
+  border:1px solid var(--violet-dim);
+  border-radius:12px;
+  padding:20px 22px;
+  margin:18px 0;
+}
+.demo .card-title{ color:var(--violet); }
+.demo-row{ display:flex; gap:22px; align-items:center; flex-wrap:wrap; margin-top:10px;}
+.demo input[type=range]{ width:220px; accent-color:var(--violet); }
+.demo .readout{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text); background:#0d1015; padding:8px 14px; border-radius:8px; border:1px solid var(--border);}
+.demo .readout b{ color:var(--violet); }
+.demo-note{ font-size:12px; color:var(--text-faint); margin-top:10px;}
+
+/* ---- Key takeaways ---- */
+.takeaway{
+  display:flex; gap:16px; align-items:flex-start;
+  padding:16px 0; border-bottom:1px solid var(--border);
+}
+.takeaway:last-child{ border-bottom:none; }
+.takeaway .tnum{
+  width:30px; height:30px; border-radius:8px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px;
+  color:var(--bg); background:var(--accent);
+}
+.takeaway .ttitle{ font-size:13.5px; font-weight:600; color:var(--text); margin-bottom:2px; font-family:'Space Grotesk',sans-serif;}
+.takeaway p{ margin-bottom:0; font-size:13.5px;}
+
+/* ---- Divider section (like slide title cards) ---- */
+.divider{
+  margin:8px 0 8px 0;
+  border-radius:14px;
+  padding:34px 40px;
+  position:relative;
+  overflow:hidden;
+  border:1px solid var(--border);
+}
+.divider h3{ font-size:20px; color:#f5f7fa; margin-bottom:6px;}
+.divider p{ color:rgba(255,255,255,.55); margin-bottom:0; font-size:13px;}
+
+/* ---- badges ---- */
+.badge{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:2px 8px; border-radius:5px; background:var(--bg-panel-2); color:var(--text-faint); border:1px solid var(--border); margin-left:6px;}
+
+/* scroll to top */
+.top-btn{
+  position:fixed; bottom:24px; right:24px;
+  width:42px; height:42px; border-radius:50%;
+  background:var(--bg-panel); border:1px solid var(--border);
+  color:var(--text-dim); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
+  z-index:50;
+}
+.top-btn.show{ opacity:1; pointer-events:auto; }
+.top-btn:hover{ color:var(--text); border-color:var(--steel); transform:translateY(-2px); }
+
+@media(max-width:860px){
+  .sidebar{ display:none; }
+  .hero, section.chapter{ padding-left:24px; padding-right:24px; }
+  .chapter-body{ margin-left:0; }
+  .grid2, .grid3, .chartgrid2{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ============ SIDEBAR ============ -->
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="tag">Advanced Embedded Systems</span>
+      <h1>BJT &amp; MOSFET</h1>
+      <div class="sub">Power device fundamentals — full study notes</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Course</div>
+      <a class="navlink" href="#overview"><span class="num">◆</span>Overview</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Sections</div>
+      <a class="navlink" href="#s1"><span class="num">01</span>Transistors (BJT)</a>
+      <a class="navlink" href="#s2"><span class="num">02</span>MOSFET Basics</a>
+      <a class="navlink" href="#s3"><span class="num">03</span>MOSFETs by Material</a>
+      <a class="navlink" href="#s4"><span class="num">04</span>Gate · Drain · Source</a>
+      <a class="navlink" href="#s5"><span class="num">05</span>Conduction &amp; Switching Loss</a>
+      <a class="navlink" href="#s6"><span class="num">06</span>BJT vs MOSFET vs IGBT</a>
+      <a class="navlink" href="#s7"><span class="num">07</span>Key Takeaways</a>
+    </div>
+
+    <div class="sidebar-foot">
+      Compiled study reference · covers device physics, characteristic curves, gate charge behaviour, and loss analysis for power switch selection.
+    </div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <main>
+
+    <!-- HERO -->
+    <div class="hero" id="overview">
+      <div class="eyebrow"><span class="dot"></span>Power Electronics · Device Fundamentals</div>
+      <h1>Transistors, MOSFETs &amp; the physics of <span class="accent">switching a load</span>.</h1>
+      <p class="lede">From the current-controlled BJT to voltage-controlled MOSFETs across silicon, SiC and GaN — how each device turns on, how it loses energy, and when to reach for which one.</p>
+      <div class="stats">
+        <div class="stat"><div class="n">6</div><div class="l">SECTIONS</div></div>
+        <div class="stat"><div class="n">3</div><div class="l">DEVICE FAMILIES</div></div>
+        <div class="stat"><div class="n">4</div><div class="l">SEMICONDUCTOR MATERIALS</div></div>
+        <div class="stat"><div class="n">12+</div><div class="l">CHARACTERISTIC GRAPHS</div></div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 1: BJT ================= -->
+    <section class="chapter" id="s1" style="--accent:var(--rust)">
+      <div class="chapter-head">
+        <div class="chnum">01</div>
+        <div>
+          <h2>Transistors (BJT)</h2>
+          <div class="desc">Bipolar Junction Transistors — basics, operating modes, and characteristic curves</div>
+        </div>
+      </div>
+
+      <div class="chapter-body">
+
+        <h3 class="subhead" style="--accent:var(--rust)"><span class="bar"></span>What is a BJT?</h3>
+        <p>A BJT is a <strong>three-terminal, current-controlled device</strong>. It's called "bipolar" because both electron and hole carriers participate in conduction — unlike a MOSFET, which relies on only one carrier type. It's built from three alternating-doped semiconductor layers.</p>
+
+        <div class="grid2">
+          <div class="card rust">
+            <div class="card-title"><span class="sw"></span>Definition</div>
+            <p><strong>Terminals:</strong> Base (B) · Collector (C) · Emitter (E)</p>
+            <p style="margin-top:8px;"><strong>Key rule:</strong> I_C = β × I_B</p>
+            <p style="margin-top:8px;">β (h<sub>FE</sub>) typically ranges <strong>50–500</strong>, and varies significantly between individual devices of the same part number, and with temperature.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="sw" style="background:var(--amber)"></span>NPN Structure</div>
+            <div class="stack">
+              <div class="layer" style="background:var(--amber-glow); color:var(--amber); border:1px solid var(--amber-dim);">N — Collector <span class="tag">C</span></div>
+              <div class="layer" style="background:var(--rust-glow); color:var(--rust); border:1px solid var(--rust-dim);">P — Base (thin) <span class="tag">B</span></div>
+              <div class="layer" style="background:var(--amber-glow); color:var(--amber); border:1px solid var(--amber-dim);">N — Emitter <span class="tag">E</span></div>
+            </div>
+            <p style="font-size:12px;">The base is deliberately thin and lightly doped so most carriers injected from the emitter sweep across into the collector rather than recombining.</p>
+          </div>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--rust)"><span class="bar"></span>The Four Rules (NPN)</h3>
+        <ol>
+          <li>Collector must stay more positive than emitter for active-mode operation.</li>
+          <li>The base–emitter junction behaves like a forward diode — roughly <strong>0.6 V</strong> to turn on.</li>
+          <li>Never exceed the datasheet's I_C, I_B, or V_CE limits.</li>
+          <li><strong>Never design a circuit around a specific β value</strong> — it varies 2–3× between individual parts and drifts with temperature. Good BJT design (e.g. emitter degeneration) makes behaviour insensitive to β.</li>
+        </ol>
+
+        <h3 class="subhead" style="--accent:var(--rust)"><span class="bar"></span>Three Operating Regions</h3>
+        <div class="pillrow">
+          <div class="pill">
+            <span class="ph" style="background:var(--bg-panel-2); color:var(--text-dim);">CUT-OFF</span>
+            <p>I_B = 0 · I_C ≈ 0</p>
+            <p>Both junctions reverse-biased.</p>
+            <p style="color:var(--text-faint);">Behaves like an <strong style="color:var(--text-dim)">open switch</strong>.</p>
+          </div>
+          <div class="pill" style="border-color:var(--sage-dim);">
+            <span class="ph" style="background:var(--sage-glow); color:var(--sage);">ACTIVE</span>
+            <p>I_C = β · I_B</p>
+            <p>Base–emitter forward, base–collector reverse.</p>
+            <p style="color:var(--text-faint);">Used for <strong style="color:var(--text-dim)">amplification</strong>.</p>
+          </div>
+          <div class="pill" style="border-color:var(--rust-dim);">
+            <span class="ph" style="background:var(--rust-glow); color:var(--rust);">SATURATION</span>
+            <p>V_CE ≈ 0.2 V</p>
+            <p>Both junctions forward-biased.</p>
+            <p style="color:var(--text-faint);">Behaves like a <strong style="color:var(--text-dim)">closed switch</strong>.</p>
+          </div>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--rust)"><span class="bar"></span>BJT Output Characteristics — I_C vs V_CE</h3>
+        <div class="chartwrap">
+          <div class="chart-title">I_C (mA) vs V_CE (V) for different base currents</div>
+          <div class="chart-sub">Each curve = a fixed I_B. Watch the steep left edge vs the flat plateau.</div>
+          <div class="chart-canvas-box"><canvas id="chartBJT"></canvas></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card steel">
+            <div class="card-title"><span class="sw"></span>Reading the curves</div>
+            <ul>
+              <li><strong>Steep left edge</strong> = saturation (V_CE &lt; 0.3 V, fully ON) — a tiny ΔV_CE causes a huge ΔI_C.</li>
+              <li><strong>Flat plateau</strong> = active region (I_C = β·I_B, amplifier mode) — I_C barely depends on V_CE here.</li>
+            </ul>
+          </div>
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>Key observations</div>
+            <ul>
+              <li>I_C is set by I_B, not V_CE — current-source behaviour.</li>
+              <li>Slight upward slope in the "flat" region = <strong>Early Effect</strong> (base-width modulation).</li>
+              <li>I_B = 0 → cut-off region.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout tip">
+          <span class="lbl">Why this matters</span>
+          <p>The flatness of the active-region plateau is exactly why BJTs make good amplifiers: I_C stays a clean, predictable multiple of I_B regardless of the voltage across the device. The Early Effect (slight slope) shows up in precision analog as a finite output resistance rather than an ideal current source.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= SECTION 2: MOSFET BASICS ================= -->
+    <section class="chapter" id="s2" style="--accent:var(--steel)">
+      <div class="chapter-head">
+        <div class="chnum">02</div>
+        <div>
+          <h2>MOSFETs — Structure, Family &amp; Characteristic Curves</h2>
+          <div class="desc">Metal-Oxide-Semiconductor Field-Effect Transistors</div>
+        </div>
+      </div>
+
+      <div class="chapter-body">
+
+        <h3 class="subhead"><span class="bar"></span>What is a MOSFET?</h3>
+        <p>A MOSFET is a <strong>voltage-controlled</strong> device — dominant in digital and power electronics. Unlike the BJT, it's <strong>unipolar</strong>: only one carrier type conducts (electrons, for N-channel).</p>
+
+        <div class="grid2">
+          <div class="card steel">
+            <div class="card-title"><span class="sw"></span>Definition &amp; Terminals</div>
+            <p><strong>Gate (G):</strong> control, zero DC current</p>
+            <p><strong>Drain (D):</strong> output terminal</p>
+            <p><strong>Source (S):</strong> reference terminal</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="sw" style="background:var(--amber)"></span>N-Channel Structure</div>
+            <div class="stack" style="max-width:100%;">
+              <div class="layer" style="background:#1c1f26; color:var(--text-dim); border:1px solid var(--border);">Gate (Metal / Poly-Si) <span class="tag">G</span></div>
+              <div class="layer" style="background:#20232c; color:var(--text-faint); border:1px solid var(--border); font-size:11px;">SiO₂ Gate Oxide (insulator)</div>
+              <div class="layer" style="background:var(--steel-glow); color:var(--steel); border:1px solid var(--steel-dim);">N+ Source &nbsp;&nbsp;&nbsp; N+ Drain <span class="tag">S</span></div>
+              <div class="layer" style="background:var(--amber-glow); color:var(--amber); border:1px solid var(--amber-dim);">P-Body (channel forms at V<sub>GS</sub> &gt; V<sub>th</sub>)</div>
+              <div class="layer" style="background:#1a1e24; color:var(--text-faint); border:1px solid var(--border); font-size:11px;">N− Drift (sets voltage rating)</div>
+              <div class="layer" style="background:var(--steel-glow); color:var(--steel); border:1px solid var(--steel-dim);">N+ Drain Substrate (heatsink tab) <span class="tag">D</span></div>
+            </div>
+            <p style="font-size:11.5px; color:var(--text-faint); margin-top:8px;">Current flows vertically: Drain (bottom) ↔ Source (top) through the channel.</p>
+          </div>
+        </div>
+
+        <h3 class="subhead"><span class="bar"></span>Key advantages over BJT</h3>
+        <div class="grid2">
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>Why MOSFETs dominate switching</div>
+            <ul>
+              <li><strong>Zero DC gate current</strong> (input resistance &gt; 10¹⁴ Ω) — the gate is isolated by an oxide, not a PN junction.</li>
+              <li><strong>No thermal runaway</strong> — R_DS(on) rises with temperature, so a hotter device carries less current. Self-balancing when paralleled.</li>
+              <li><strong>Faster</strong> — no minority-carrier storage delay.</li>
+              <li><strong>Easy to parallel</strong> — no ballast resistors needed (unlike BJTs).</li>
+              <li>I_D = κ(V_GS − V_th)² — quadratic law, vs BJT's linear I_C = β·I_B.</li>
+            </ul>
+          </div>
+          <div class="card violet">
+            <div class="card-title"><span class="sw"></span>BJT vs MOSFET: thermal behaviour</div>
+            <p>A hotter BJT needs less V_BE for the same current — it hogs more current, heats further, and can run away. A hotter MOSFET has higher R_DS(on) — current is pushed toward cooler, lower-resistance devices instead. This is why paralleling MOSFETs is "safe by default," while paralleling BJTs needs emitter-degeneration resistors.</p>
+          </div>
+        </div>
+
+        <h3 class="subhead"><span class="bar"></span>MOSFET Family Tree</h3>
+        <div class="grid2">
+          <div class="card steel">
+            <div class="card-title"><span class="sw"></span>N-Channel (Enhancement)</div>
+            <ul>
+              <li>Electrons carry current → fast, low R_DS</li>
+              <li>V_GS <strong>positive</strong> (&gt; V_th) to turn ON</li>
+              <li>Normally-OFF · ~95% of power designs</li>
+              <li>Examples: 2N7000, IRFZ44N, IRF540</li>
+            </ul>
+          </div>
+          <div class="card rust">
+            <div class="card-title"><span class="sw"></span>P-Channel (Enhancement)</div>
+            <ul>
+              <li>Holes carry current → higher R_DS, slower</li>
+              <li>V_GS <strong>negative</strong> (&lt; −V_th) to turn ON</li>
+              <li>Used in high-side switches</li>
+              <li>Examples: IRF9540, FQP27P06</li>
+            </ul>
+          </div>
+          <div class="card amber">
+            <div class="card-title"><span class="sw"></span>Depletion Mode (Normally-ON)</div>
+            <ul>
+              <li>Channel exists at V_GS = 0</li>
+              <li>Negative V_GS turns it OFF</li>
+              <li>Used in current sources / limiters</li>
+              <li>Examples: DN2535, LND150</li>
+            </ul>
+          </div>
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>JFET vs MOSFET</div>
+            <ul>
+              <li>JFET gate = PN junction (must stay reverse-biased, nA leakage)</li>
+              <li>MOSFET gate = SiO₂ insulated (zero DC current, ±20 V max, ESD-sensitive)</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 class="subhead"><span class="bar"></span>MOSFET Characteristic Curves</h3>
+        <div class="chartgrid2">
+          <div class="chartwrap">
+            <div class="chart-title">Transfer: I_D vs V_GS (V_th = 3 V)</div>
+            <div class="chart-sub">I_D = 0 below V_th. Above it: I_D = κ(V_GS−V_th)² — quadratic rise.</div>
+            <div class="chart-canvas-box short"><canvas id="chartTransfer"></canvas></div>
+          </div>
+          <div class="chartwrap">
+            <div class="chart-title">Output: I_D (A) vs V_DS (V)</div>
+            <div class="chart-sub">Steep rise = linear region (RDS(on)). Flat = saturation (amplifier).</div>
+            <div class="chart-canvas-box short"><canvas id="chartOutput"></canvas></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= SECTION 3: MATERIALS ================= -->
+    <section class="chapter" id="s3" style="--accent:var(--sage)">
+      <div class="chapter-head">
+        <div class="chnum">03</div>
+        <div>
+          <h2>MOSFETs by Material</h2>
+          <div class="desc">Si · Super-Junction · SiC · GaN — and why bandgap is the whole story</div>
+        </div>
+      </div>
+
+      <div class="chapter-body">
+
+        <p>Every row in this table is really a story about <strong>bandgap</strong>. A wider-bandgap material needs more energy to knock an electron from the valence band into the conduction band — so it tolerates a much higher electric field before avalanche breakdown. That means the drift region can be thinner and less resistive for the <em>same</em> voltage rating, directly lowering R_DS(on) and conduction loss.</p>
+
+        <div class="grid3">
+          <div class="card steel">
+            <div class="card-title"><span class="sw"></span>Silicon (Si)</div>
+            <p>1.1 eV · T<sub>j</sub> 150°C · ≤650 V</p>
+            <p>Cheapest, most mature.</p>
+            <p style="color:var(--text-faint);">Use: &lt;200 V supplies, drives</p>
+            <p style="color:var(--text-faint);">IRFZ44N, IRF540N</p>
+          </div>
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>Super-Junction Si</div>
+            <p>P/N pillar structure</p>
+            <p>500–900 V range</p>
+            <p style="color:var(--text-faint);">Use: PFC, offline supplies</p>
+            <p style="color:var(--text-faint);">CoolMOS, MDmesh</p>
+          </div>
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>Silicon Carbide (SiC)</div>
+            <p>3.3 eV · T<sub>j</sub> 200°C</p>
+            <p>650 – 4500 V</p>
+            <p style="color:var(--text-faint);">Best above 600 V — EV, solar</p>
+            <p style="color:var(--text-faint);">Wolfspeed C3M</p>
+          </div>
+          <div class="card violet">
+            <div class="card-title"><span class="sw"></span>GaN HEMT</div>
+            <p>3.4 eV · 40–650 V · MHz+</p>
+            <p>Lowest switching losses</p>
+            <p style="color:var(--text-faint);"><strong>No body diode!</strong></p>
+            <p style="color:var(--text-faint);">GaN Systems, EPC</p>
+          </div>
+          <div class="card amber">
+            <div class="card-title"><span class="sw"></span>DMOS (Power Si)</div>
+            <p>Vertical structure</p>
+            <p>Drain = die back = tab</p>
+            <p style="color:var(--text-faint);">Intrinsic body diode</p>
+            <p style="color:var(--text-faint);">All power MOSFETs use this</p>
+          </div>
+          <div class="card rust">
+            <div class="card-title"><span class="sw"></span>IGBT (reference)</div>
+            <p>MOS gate + BJT output</p>
+            <p>600 – 6500 V</p>
+            <p style="color:var(--text-faint);">Slower, but wins &gt;400 V</p>
+            <p style="color:var(--text-faint);">STGP10NC60</p>
+          </div>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--sage)"><span class="bar"></span>Technology comparison</h3>
+        <div class="chartgrid2">
+          <div class="chartwrap">
+            <div class="chart-title">Max blocking voltage (V)</div>
+            <div class="chart-canvas-box short"><canvas id="chartVoltage"></canvas></div>
+            <div class="callout tip" style="margin:14px 0 4px 0;"><span class="lbl">Takeaway</span><p>IGBT &amp; SiC dominate above 1 kV. Si tops out ~900 V.</p></div>
+          </div>
+          <div class="chartwrap">
+            <div class="chart-title">Practical max switching frequency (kHz)</div>
+            <div class="chart-canvas-box short"><canvas id="chartFreq"></canvas></div>
+            <div class="callout tip" style="margin:14px 0 4px 0;"><span class="lbl">Takeaway</span><p>GaN is 10–100× faster than Si → smaller magnetics.</p></div>
+          </div>
+        </div>
+
+        <div class="callout rule">
+          <span class="lbl">Why GaN has no body diode</span>
+          <p>GaN HEMTs are lateral devices built on a fundamentally different structure (a 2D electron gas at the AlGaN/GaN interface) rather than a vertical P-N-P-N stack — there's no P-body/N-drain junction to form a parasitic diode. This eliminates reverse-recovery losses entirely, one of the reasons GaN chargers can switch in the MHz range.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= SECTION 4: GATE / DRAIN / SOURCE ================= -->
+    <section class="chapter" id="s4" style="--accent:var(--violet)">
+      <div class="chapter-head">
+        <div class="chnum">04</div>
+        <div>
+          <h2>Gate · Drain · Source Deep Dive</h2>
+          <div class="desc">Terminals, depletion layer, body diode, and characteristic graphs</div>
+        </div>
+      </div>
+
+      <div class="chapter-body">
+
+        <h3 class="subhead" style="--accent:var(--violet)"><span class="bar"></span>N-Channel MOSFET: terminals explained</h3>
+        <div class="grid2">
+          <div class="card" style="border-color:#3a3f4a;">
+            <div class="card-title"><span class="sw" style="background:#8a8f9c"></span>Gate (G)</div>
+            <ul>
+              <li>Insulated by SiO₂ — zero DC current</li>
+              <li>V_GS controls the channel → controls I_D</li>
+              <li>V_th typically 1–5 V</li>
+              <li><strong>Never float</strong> · BV_GSS = ±20 V max</li>
+            </ul>
+          </div>
+          <div class="card rust">
+            <div class="card-title"><span class="sw"></span>Drain (D)</div>
+            <ul>
+              <li>Current enters here (N-ch)</li>
+              <li>Drain = back of die = heatsink tab</li>
+              <li>N− drift thickness sets BV_DSS</li>
+              <li>Inductive kick can spike V_DS!</li>
+            </ul>
+          </div>
+          <div class="card steel">
+            <div class="card-title"><span class="sw"></span>Source (S)</div>
+            <ul>
+              <li>Current exits here · V_GS reference</li>
+              <li>Low-side: Source = GND (easy drive)</li>
+              <li>High-side: needs bootstrap driver</li>
+              <li>Body tied to Source internally</li>
+            </ul>
+          </div>
+          <div class="card amber">
+            <div class="card-title"><span class="sw"></span>Body Diode (intrinsic)</div>
+            <ul>
+              <li>P-body → PN diode (S anode, D cathode)</li>
+              <li>Conducts when Drain is negative</li>
+              <li>V_f ≈ 0.7–1 V · slow t_rr 100–500 ns</li>
+              <li>Fix: Schottky in parallel, or use GaN</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">Never let the gate float</span>
+          <p>An unconnected, high-impedance gate can pick up static charge and drift to an unpredictable voltage — partially turning the device ON. Always use a pull-down (or pull-up) resistor on gate nodes.</p>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--violet)"><span class="bar"></span>Depletion layer &amp; channel formation — step by step</h3>
+        <p>How the N-channel turns ON:</p>
+        <div class="pillrow">
+          <div class="pill">
+            <span class="ph" style="background:var(--bg-panel-2); color:var(--text-dim);">STEP 1 · V_GS = 0 (OFF)</span>
+            <p>No gate voltage. P-body neutral.</p>
+            <p>No channel exists. Only nA leakage.</p>
+            <p style="color:var(--text-faint);">→ <strong style="color:var(--text-dim)">Cut-off</strong></p>
+          </div>
+          <div class="pill" style="border-color:var(--amber-dim);">
+            <span class="ph" style="background:var(--amber-glow); color:var(--amber);">STEP 2 · 0 &lt; V_GS &lt; V_th</span>
+            <p>Gate attracts electrons, repels holes.</p>
+            <p>Depletion layer widens. Channel not yet formed.</p>
+            <p style="color:var(--text-faint);">→ <strong style="color:var(--text-dim)">Still OFF</strong></p>
+          </div>
+          <div class="pill" style="border-color:var(--sage-dim);">
+            <span class="ph" style="background:var(--sage-glow); color:var(--sage);">STEP 3 · V_GS ≥ V_th (ON)</span>
+            <p>Surface inverts. Inversion layer forms.</p>
+            <p>Electrons flow S → D. I_D = κ(V_GS−V_th)²</p>
+            <p style="color:var(--text-faint);">→ <strong style="color:var(--text-dim)">Fully ON</strong></p>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card steel">
+            <div class="card-title"><span class="sw"></span>Operating regions</div>
+            <ul>
+              <li><strong>Linear:</strong> V_DS &lt; V_GS−V_th → acts as resistor R_DS(on)</li>
+              <li><strong>Saturation:</strong> V_DS &gt; V_GS−V_th → I_D constant</li>
+              <li><strong>Breakdown:</strong> V_DS &gt; BV_DSS → avalanche</li>
+            </ul>
+          </div>
+          <div class="card violet">
+            <div class="card-title"><span class="sw"></span>Key equations</div>
+            <div class="eqbox" style="margin:0; padding:12px 16px;">
+              <div class="line">V_th = 1–5 V &nbsp;(drops ~7 mV/°C)</div>
+              <div class="line">I_D = κ(V_GS − V_th)²</div>
+              <div class="line">R_DS(on) doubles from 25°C → 125°C</div>
+              <div class="line">gm = 2κ(V_GS − V_th)</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--violet)"><span class="bar"></span>Gate-related graphs</h3>
+        <div class="chartgrid2">
+          <div class="chartwrap">
+            <div class="chart-title">R_DS(on) vs Gate Voltage V_GS</div>
+            <div class="chart-canvas-box short"><canvas id="chartRdsVgs"></canvas></div>
+            <div class="callout tip" style="margin:14px 0 4px 0;"><span class="lbl">Why V_GS = 10 V?</span><p>R_DS(on) falls steeply then flattens. Drive V_GS ≥ 10 V (or ≥5 V for logic-level parts) for lowest loss.</p></div>
+          </div>
+          <div class="chartwrap">
+            <div class="chart-title">Gate threshold V_th vs Temperature (°C)</div>
+            <div class="chart-canvas-box short"><canvas id="chartVthTemp"></canvas></div>
+            <div class="callout warn" style="margin:14px 0 4px 0;"><span class="lbl">Watch out</span><p>V_th drops ~7 mV/°C. A hot device turns on earlier — risk of partial turn-on with marginal gate drive.</p></div>
+          </div>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--violet)"><span class="bar"></span>Drain &amp; source-related graphs</h3>
+        <div class="chartgrid2">
+          <div class="chartwrap">
+            <div class="chart-title">Capacitances (pF) vs Drain Voltage V_DS (V)</div>
+            <div class="chart-canvas-box short"><canvas id="chartCap"></canvas></div>
+            <div class="callout rule" style="margin:14px 0 4px 0;"><span class="lbl">Gate–drain coupling</span><p>All capacitances drop as V_DS rises. C_rss (gate–drain Miller cap) causes the plateau in the gate charge curve.</p></div>
+          </div>
+          <div class="chartwrap">
+            <div class="chart-title">Body diode: Source→Drain current vs V_SD (V)</div>
+            <div class="chart-canvas-box short"><canvas id="chartBodyDiode"></canvas></div>
+            <div class="callout" style="margin:14px 0 4px 0; --accent:var(--violet);"><span class="lbl">Source–drain diode</span><p>Conducts when Source is positive vs Drain (~0.7 V knee). Useful for freewheeling, but slow recovery causes losses.</p></div>
+          </div>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--violet)"><span class="bar"></span>Gate charge &amp; the Miller plateau</h3>
+        <p>The single most important switching-behaviour graph for a power MOSFET. It shows how V_GS evolves as you push a controlled charge into the gate during turn-on.</p>
+
+        <div class="chartwrap">
+          <div class="chart-title">Gate Voltage V_GS (V) vs Gate Charge Q_G (nC)</div>
+          <div class="chart-canvas-box"><canvas id="chartMiller"></canvas></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card violet">
+            <div class="card-title"><span class="sw"></span>Three regions</div>
+            <ol style="padding-left:16px;">
+              <li><strong>Region 1:</strong> C_iss charges up to V_th — nothing happens at the drain yet.</li>
+              <li><strong>Region 2 — Miller plateau:</strong> V_GS goes flat while V_DS collapses (governed by C_rss). This is the actual switching transition, and the slowest part.</li>
+              <li><strong>Region 3:</strong> V_GS rises the rest of the way to full drive, fully enhancing the channel.</li>
+            </ol>
+          </div>
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>Design rule</div>
+            <p>Gate drive current sets switching speed:</p>
+            <div class="eqbox" style="margin:10px 0;">I_g = Q_G / t_switch</div>
+            <p>e.g. 100 nC in 10 ns → <strong>10 A peak!</strong> Far beyond a microcontroller GPIO pin — use a proper gate driver IC.</p>
+          </div>
+        </div>
+
+        <!-- Interactive demo -->
+        <div class="demo">
+          <div class="card-title"><span class="sw" style="background:var(--violet)"></span>Interactive — gate drive current calculator</div>
+          <p style="font-size:12.5px; margin-bottom:0;">Drag the sliders to see how gate charge and desired switch time set the peak gate-drive current you need.</p>
+          <div class="demo-row">
+            <div>
+              <label style="font-size:11.5px; color:var(--text-faint);">Total Gate Charge Q_G (nC)</label><br>
+              <input type="range" id="qgSlider" min="10" max="200" value="100" step="5">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--text-faint);">Target switch time (ns)</label><br>
+              <input type="range" id="tSlider" min="5" max="100" value="10" step="1">
+            </div>
+            <div class="readout">I_g = <b id="qgOut">100</b> nC / <b id="tOut">10</b> ns = <b id="igOut" style="color:var(--sage);">10.0 A</b></div>
+          </div>
+          <div class="demo-note" id="igNote">10.0 A peak gate current — well beyond a GPIO pin. A dedicated MOSFET gate-driver IC is required.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= SECTION 5: LOSSES ================= -->
+    <section class="chapter" id="s5" style="--accent:var(--rust)">
+      <div class="chapter-head">
+        <div class="chnum">05</div>
+        <div>
+          <h2>Conduction &amp; Switching Losses</h2>
+          <div class="desc">Where the power goes in a MOSFET switch</div>
+        </div>
+      </div>
+
+      <div class="chapter-body">
+
+        <h3 class="subhead" style="--accent:var(--rust)"><span class="bar"></span>Conduction losses</h3>
+        <p>I²R heating while the MOSFET is fully ON.</p>
+
+        <div class="grid2">
+          <div class="card rust">
+            <div class="card-title"><span class="sw"></span>Formula &amp; example</div>
+            <div class="eqbox" style="margin:0 0 10px 0;">P_cond = I_D² × R_DS(on) × D</div>
+            <p>Example: 10 A, 50 mΩ (25°C)<br>→ P = 100 × 0.05 = <strong>5 W</strong></p>
+            <p style="color:var(--rust); font-weight:600;">At 125°C: R_DS ≈ 125 mΩ → 12.5 W!</p>
+          </div>
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>How to reduce it</div>
+            <ol style="padding-left:16px;">
+              <li>Lower-R_DS(on) part</li>
+              <li>Parallel MOSFETs (self-balancing)</li>
+              <li>Full gate drive (V_GS = 10–15 V)</li>
+              <li>SiC above 600 V</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="chartwrap">
+          <div class="chart-title">R_DS(on) multiplier vs junction temperature (°C)</div>
+          <div class="chart-canvas-box short"><canvas id="chartRdsTemp"></canvas></div>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">Self-reinforcing loop</span>
+          <p>Since R_DS(on) rises with temperature, and conduction loss depends on R_DS(on), a poorly-cooled device can enter a loop: more current → more heat → higher resistance → more heat. This is why thermal design and R_DS(on) headroom both matter, even though it isn't the runaway BJTs experience.</p>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--rust)"><span class="bar"></span>Switching losses</h3>
+        <p>Power dissipated during ON↔OFF transitions — while V_DS and I_D briefly overlap in time.</p>
+
+        <div class="grid2">
+          <div class="card amber">
+            <div class="card-title"><span class="sw"></span>Turn-ON loss (E_on)</div>
+            <p>V_DS falls while I_D rises → overlap</p>
+            <div class="eqbox" style="margin:8px 0;">E_on ≈ ½ × V_DS × I_D × t_on</div>
+            <p style="color:var(--text-faint);">Miller effect &amp; Q_rr slow it down</p>
+          </div>
+          <div class="card violet">
+            <div class="card-title"><span class="sw"></span>Turn-OFF loss (E_off)</div>
+            <p>V_DS rises while I_D falls → overlap</p>
+            <div class="eqbox" style="margin:8px 0;">E_off ≈ ½ × V_DS × I_D × t_off</div>
+            <p style="color:var(--text-faint);">Faster gate driver = less loss</p>
+          </div>
+        </div>
+
+        <div class="chartwrap">
+          <div class="chart-title">Total loss (W) vs switching frequency — 10 A, 48 V example</div>
+          <div class="chart-canvas-box"><canvas id="chartTotalLoss"></canvas></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card rust">
+            <div class="card-title"><span class="sw"></span>Total loss</div>
+            <div class="eqbox" style="margin:0 0 8px 0; font-size:12.5px;">P = P_cond + ½·V_DS·I_D·(t_on+t_off)·f_sw + Q_G·V_GS·f_sw</div>
+            <p style="color:var(--rust); font-weight:600;">Switching loss grows LINEARLY with f_sw.</p>
+          </div>
+          <div class="card sage">
+            <div class="card-title"><span class="sw"></span>How to reduce it</div>
+            <p>Low-Q_G part · strong gate driver · low C_rss · Schottky for Q_rr · ZVS/ZCS topologies · GaN for MHz operation.</p>
+          </div>
+        </div>
+
+        <div class="callout rule">
+          <span class="lbl">The core design tension</span>
+          <p>At low frequency (10 kHz), conduction loss dominates total dissipation. By 500 kHz, switching loss has become dominant by far — sometimes by 5–6×. Raising switching frequency shrinks inductors, transformers, and capacitors, but only pays off if paired with a device/driver combination (low C_rss, fast driver, or GaN) that keeps t_on/t_off short.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= SECTION 6: COMPARISON ================= -->
+    <section class="chapter" id="s6" style="--accent:var(--violet)">
+      <div class="chapter-head">
+        <div class="chnum">06</div>
+        <div>
+          <h2>BJT vs MOSFET</h2>
+          <div class="desc">Full technical comparison, including IGBT</div>
+        </div>
+      </div>
+
+      <div class="chapter-body">
+
+        <div class="tablewrap dark">
+          <table>
+            <thead>
+              <tr><th>Property</th><th>BJT (NPN)</th><th>MOSFET (N-ch)</th><th>IGBT</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Control</td><td>Current (I_B→I_C)</td><td>Voltage (V_GS→I_D)</td><td>Voltage (V_GE→I_C)</td></tr>
+              <tr><td>Input resistance</td><td>~1–10 kΩ</td><td>&gt;10¹⁴ Ω</td><td>&gt;10¹⁴ Ω</td></tr>
+              <tr><td>ON-state</td><td>V_ce(sat) 0.2–1.5 V</td><td>I_D × R_DS(on)</td><td>V_ce(sat) 1.5–3 V</td></tr>
+              <tr><td>Thermal runaway</td><td style="color:var(--rust)">Yes</td><td style="color:var(--sage)">No (self-balancing)</td><td>Partial</td></tr>
+              <tr><td>Paralleling</td><td>Needs R_e resistors</td><td style="color:var(--sage)">Direct — safe</td><td>Needs care</td></tr>
+              <tr><td>Speed</td><td>Slower (minority)</td><td style="color:var(--sage)">Fast (majority)</td><td>Slowest (tail)</td></tr>
+              <tr><td>Max voltage</td><td>~400 V</td><td>900 V Si / 4500 V SiC</td><td>600–6500 V</td></tr>
+              <tr><td>Frequency</td><td>DC–100 kHz</td><td>DC–MHz (GaN GHz)</td><td>DC–50 kHz</td></tr>
+              <tr><td>Cost</td><td>Very low</td><td>Low–moderate</td><td>Moderate–high</td></tr>
+              <tr><td>Best use</td><td>Amplifiers</td><td>Power switching, digital, RF</td><td>&gt;400 V power</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="subhead" style="--accent:var(--violet)"><span class="bar"></span>When to use which?</h3>
+        <div class="grid3">
+          <div class="card rust">
+            <div class="card-title"><span class="sw"></span>Use BJT when...</div>
+            <ul>
+              <li>Low-power amplifiers</li>
+              <li>Precision analog (gm = I_C/V_T)</li>
+              <li>Darlington high gain</li>
+              <li>Ultra-low cost</li>
+            </ul>
+          </div>
+          <div class="card steel">
+            <div class="card-title"><span class="sw"></span>Use MOSFET when...</div>
+            <ul>
+              <li>All digital logic</li>
+              <li>Power switching &lt; 400 V</li>
+              <li>High frequency (&gt;100 kHz)</li>
+              <li>Paralleling for current</li>
+            </ul>
+          </div>
+          <div class="card violet">
+            <div class="card-title"><span class="sw"></span>Use IGBT when...</div>
+            <ul>
+              <li>High voltage &gt; 400 V</li>
+              <li>Medium freq (&lt;50 kHz)</li>
+              <li>EV / solar inverters</li>
+              <li>Industrial motor drives</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="chartwrap">
+          <div class="chart-title">ON-state voltage (V): BJT vs MOSFET, 25°C vs 125°C</div>
+          <div class="chart-sub">Reference: Horowitz &amp; Hill, The Art of Electronics, 3rd Ed.</div>
+          <div class="chart-canvas-box"><canvas id="chartOnState"></canvas></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= SECTION 7: TAKEAWAYS ================= -->
+    <section class="chapter" id="s7" style="--accent:var(--steel); border-bottom:none;">
+      <div class="chapter-head">
+        <div class="chnum">07</div>
+        <div>
+          <h2>Key Takeaways</h2>
+          <div class="desc">The five things to walk away with</div>
+        </div>
+      </div>
+
+      <div class="chapter-body">
+        <div class="card" style="padding:6px 24px;">
+          <div class="takeaway" style="--accent:var(--rust)">
+            <div class="tnum">1</div>
+            <div><div class="ttitle">BJT</div><p>Current-controlled (I_C = β·I_B). Cut-off / active / saturation. Never design around β.</p></div>
+          </div>
+          <div class="takeaway" style="--accent:var(--steel)">
+            <div class="tnum">2</div>
+            <div><div class="ttitle">MOSFET</div><p>Voltage-controlled, zero gate current. V_GS &gt; V_th forms the inversion channel.</p></div>
+          </div>
+          <div class="takeaway" style="--accent:var(--sage)">
+            <div class="tnum">3</div>
+            <div><div class="ttitle">Terminals</div><p>Gate: insulated, ±20 V max. Drain: sets BV_DSS, heatsink tab. Source: reference. Body diode: slow but useful.</p></div>
+          </div>
+          <div class="takeaway" style="--accent:var(--amber)">
+            <div class="tnum">4</div>
+            <div><div class="ttitle">Losses</div><p>P_cond = I_D²·R_DS(on) (doubles when hot). P_sw ∝ f_sw. Use the charts to pick the right device.</p></div>
+          </div>
+          <div class="takeaway" style="--accent:var(--violet)">
+            <div class="tnum">5</div>
+            <div><div class="ttitle">Choice</div><p>MOSFET: speed, digital, &lt;400 V. BJT: precision analog, cost. IGBT: &gt;400 V power.</p></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+</div>
+
+<div class="top-btn" id="topBtn" title="Back to top">↑</div>
+
+<script>
+/* ================= Chart.js global defaults for dark theme ================= */
+Chart.defaults.color = '#8b93a3';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 10.5;
+Chart.defaults.borderColor = '#232a35';
+
+const gridColor = '#1a2029';
+const commonGrid = { color: gridColor, borderColor: '#232a35' };
+const commonScales = (xTitle, yTitle) => ({
+  x: { grid: commonGrid, title: { display: !!xTitle, text: xTitle, color:'#5b6474', font:{size:10.5} }, ticks:{color:'#5b6474'} },
+  y: { grid: commonGrid, title: { display: !!yTitle, text: yTitle, color:'#5b6474', font:{size:10.5} }, ticks:{color:'#5b6474'}, beginAtZero:true }
+});
+const legendOpts = { labels:{ color:'#8b93a3', boxWidth:12, boxHeight:2, font:{size:11} } };
+
+const COLORS = { steel:'#6f95bf', sage:'#8bab7f', violet:'#a599d4', rust:'#c17a5e', amber:'#cfa860', red:'#c1614f' };
+
+/* ---------- 1. BJT output characteristics ---------- */
+new Chart(document.getElementById('chartBJT'), {
+  type:'line',
+  data:{
+    labels:[0,0.5,1,2,4,6,8,10],
+    datasets:[
+      {label:'IB = 20 µA', data:[0,1.4,1.9,2.0,2.1,2.15,2.2,2.25], borderColor:COLORS.steel, backgroundColor:COLORS.steel, tension:.25, pointRadius:2},
+      {label:'IB = 40 µA', data:[0,2.7,3.85,4.0,4.15,4.25,4.35,4.45], borderColor:COLORS.sage, backgroundColor:COLORS.sage, tension:.25, pointRadius:2},
+      {label:'IB = 60 µA', data:[0,3.7,5.7,6.0,6.2,6.35,6.5,6.65], borderColor:COLORS.amber, backgroundColor:COLORS.amber, tension:.25, pointRadius:2},
+      {label:'IB = 80 µA', data:[0,4.6,7.45,8.0,8.3,8.5,8.7,8.85], borderColor:COLORS.red, backgroundColor:COLORS.red, tension:.25, pointRadius:2},
+    ]
+  },
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{...legendOpts, position:'bottom'} },
+    scales: commonScales('VCE (V)', 'IC (mA)')
+  }
+});
+
+/* ---------- 2. Transfer curve ID vs VGS ---------- */
+new Chart(document.getElementById('chartTransfer'), {
+  type:'line',
+  data:{
+    labels:[0,1,2,3,4,5,6,7,8,9,10],
+    datasets:[{ label:'ID (A)', data:[0,0,0,0,0.9,2.5,5.4,9.5,15,20.8,24.5], borderColor:COLORS.steel, backgroundColor:'rgba(111,149,191,0.12)', fill:true, tension:.3, pointRadius:2 }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('VGS (V)','ID (A)') }
+});
+
+/* ---------- 3. Output curves ID vs VDS ---------- */
+new Chart(document.getElementById('chartOutput'), {
+  type:'line',
+  data:{
+    labels:[0,1,2,3,4,5,6,7,8,9,10],
+    datasets:[
+      {label:'VGS = 4 V', data:[0,0.5,0.9,1.1,1.2,1.25,1.28,1.3,1.3,1.3,1.3], borderColor:'#5b6474', tension:.25, pointRadius:1.5},
+      {label:'VGS = 6 V', data:[0,1.8,3.3,4.2,4.6,4.8,4.9,4.95,5.0,5.0,5.0], borderColor:COLORS.sage, tension:.25, pointRadius:1.5},
+      {label:'VGS = 8 V', data:[0,3.2,6.5,8.8,10.2,11,11.3,11.4,11.5,11.5,11.5], borderColor:COLORS.amber, tension:.25, pointRadius:1.5},
+      {label:'VGS = 10 V', data:[0,4.5,9.5,13,15.3,16.4,16.9,17.1,17.2,17.2,17.2], borderColor:COLORS.red, tension:.25, pointRadius:1.5},
+    ]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{...legendOpts, position:'bottom'}}, scales: commonScales('VDS (V)','ID (A)') }
+});
+
+/* ---------- 4. Max blocking voltage bar ---------- */
+new Chart(document.getElementById('chartVoltage'), {
+  type:'bar',
+  data:{ labels:['Si','SJ-Si','GaN','SiC','IGBT'],
+    datasets:[{ label:'Max V (V)', data:[650,900,650,4500,6500],
+      backgroundColor:[COLORS.steel,COLORS.steel,COLORS.violet,COLORS.sage,COLORS.rust] }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('','Volts') }
+});
+
+/* ---------- 5. Switching frequency bar ---------- */
+new Chart(document.getElementById('chartFreq'), {
+  type:'bar',
+  data:{ labels:['IGBT','Si','SJ-Si','SiC','GaN'],
+    datasets:[{ label:'kHz', data:[50,500,700,1000,10000],
+      backgroundColor:[COLORS.rust,COLORS.steel,COLORS.steel,COLORS.sage,COLORS.violet] }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('','kHz') }
+});
+
+/* ---------- 6. RDS(on) vs VGS ---------- */
+new Chart(document.getElementById('chartRdsVgs'), {
+  type:'line',
+  data:{ labels:[4,5,6,7,8,10,12,15],
+    datasets:[{ label:'RDS(on) mΩ', data:[60,32,22,20,18,17,17,16.5], borderColor:COLORS.steel, backgroundColor:'rgba(111,149,191,.12)', fill:true, tension:.35, pointRadius:3 }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('VGS (V)','RDS(on) mΩ') }
+});
+
+/* ---------- 7. Vth vs Temp ---------- */
+new Chart(document.getElementById('chartVthTemp'), {
+  type:'line',
+  data:{ labels:[-40,0,25,75,125,150],
+    datasets:[{ label:'Vth (V)', data:[3.45,3.15,3.0,2.7,2.3,2.15], borderColor:COLORS.rust, backgroundColor:'rgba(193,122,94,.12)', fill:true, tension:.25, pointRadius:3 }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('Temp (°C)','Vth (V)') }
+});
+
+/* ---------- 8. Capacitances vs VDS ---------- */
+new Chart(document.getElementById('chartCap'), {
+  type:'line',
+  data:{ labels:[0,5,10,15,20,25,30,35,40,45,50],
+    datasets:[
+      {label:'Ciss', data:[1600,1500,1480,1470,1460,1455,1450,1445,1440,1435,1430], borderColor:COLORS.steel, tension:.25, pointRadius:1.5},
+      {label:'Coss', data:[1080,520,400,340,300,275,260,250,240,232,225], borderColor:COLORS.sage, tension:.25, pointRadius:1.5},
+      {label:'Crss', data:[680,180,120,90,75,65,58,52,48,45,42], borderColor:COLORS.amber, tension:.25, pointRadius:1.5},
+    ]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{...legendOpts, position:'bottom'}}, scales: commonScales('VDS (V)','pF') }
+});
+
+/* ---------- 9. Body diode ---------- */
+new Chart(document.getElementById('chartBodyDiode'), {
+  type:'line',
+  data:{ labels:[0,0.4,0.5,0.6,0.65,0.7,0.75,0.8,0.85,0.9,1.0],
+    datasets:[{ label:'ISD (A)', data:[0,0.1,0.3,0.7,1.2,2.2,4.5,8,14,22,32], borderColor:COLORS.violet, backgroundColor:'rgba(165,153,212,.12)', fill:true, tension:.35, pointRadius:2 }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('VSD (V)','ISD (A)') }
+});
+
+/* ---------- 10. Miller plateau gate charge ---------- */
+new Chart(document.getElementById('chartMiller'), {
+  type:'line',
+  data:{ labels:[0,2,4,6,8,10,12,14,16,18,20],
+    datasets:[{ label:'VGS (V)', data:[0,2.2,4.4,4.4,4.4,7.2,9.4,10,10,10,10], borderColor:COLORS.violet, backgroundColor:'rgba(165,153,212,.10)', fill:true, tension:.05, pointRadius:3 }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('QG (nC)','VGS (V)') }
+});
+
+/* ---------- 11. RDS(on) multiplier vs Tj ---------- */
+new Chart(document.getElementById('chartRdsTemp'), {
+  type:'line',
+  data:{ labels:[25,50,75,100,125,150],
+    datasets:[{ label:'Multiplier ×', data:[1,1.2,1.55,1.9,2.35,3.0], borderColor:COLORS.rust, backgroundColor:'rgba(193,122,94,.12)', fill:true, tension:.3, pointRadius:4 }]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales: commonScales('Junction Temp (°C)','Multiplier ×') }
+});
+
+/* ---------- 12. Total loss vs fsw stacked bar ---------- */
+new Chart(document.getElementById('chartTotalLoss'), {
+  type:'bar',
+  data:{ labels:['10k','50k','100k','200k','500k'],
+    datasets:[
+      { label:'Conduction', data:[5,5,5,5,5], backgroundColor:COLORS.steel, stack:'s' },
+      { label:'Switching', data:[0.5,2.5,5,10,25], backgroundColor:COLORS.rust, stack:'s' },
+    ]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{...legendOpts, position:'bottom'}},
+    scales:{ x:{ ...commonScales().x, stacked:true, title:{display:true,text:'fsw (Hz)',color:'#5b6474'} }, y:{ ...commonScales().y, stacked:true, title:{display:true,text:'Watts',color:'#5b6474'} } } }
+});
+
+/* ---------- 13. ON-state voltage comparison ---------- */
+new Chart(document.getElementById('chartOnState'), {
+  type:'bar',
+  data:{ labels:['2N4401 BJT','2N7000 MOS','TIP42A BJT','IRFZ34E MOS','TIP142 Darl','IRF540N MOS'],
+    datasets:[
+      { label:'25°C', data:[0.65,0.55,1.5,0.35,2.8,0.55], backgroundColor:COLORS.steel },
+      { label:'125°C', data:[0.78,0.9,1.65,0.55,3.7,0.95], backgroundColor:COLORS.rust },
+    ]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{...legendOpts, position:'bottom'}}, scales: commonScales('','Volts') }
+});
+
+/* ================= Interactive gate-drive demo ================= */
+const qgSlider = document.getElementById('qgSlider');
+const tSlider = document.getElementById('tSlider');
+const qgOut = document.getElementById('qgOut');
+const tOut = document.getElementById('tOut');
+const igOut = document.getElementById('igOut');
+const igNote = document.getElementById('igNote');
+
+function updateDemo(){
+  const qg = parseFloat(qgSlider.value);
+  const t = parseFloat(tSlider.value);
+  const ig = qg / t; // nC / ns = A
+  qgOut.textContent = qg;
+  tOut.textContent = t;
+  igOut.textContent = ig.toFixed(1) + ' A';
+  if(ig > 2){
+    igOut.style.color = '#c17a5e';
+    igNote.textContent = ig.toFixed(1) + ' A peak gate current — well beyond a GPIO pin. A dedicated MOSFET gate-driver IC is required.';
+  } else {
+    igOut.style.color = '#8bab7f';
+    igNote.textContent = ig.toFixed(1) + ' A peak gate current — light enough that a modest driver stage can handle it.';
+  }
+}
+qgSlider.addEventListener('input', updateDemo);
+tSlider.addEventListener('input', updateDemo);
+updateDemo();
+
+/* ================= Scroll-spy ================= */
+const navlinks = document.querySelectorAll('.navlink');
+const sections = document.querySelectorAll('section.chapter, .hero');
+const topBtn = document.getElementById('topBtn');
+
+function onScroll(){
+  let current = 'overview';
+  sections.forEach(sec=>{
+    const rect = sec.getBoundingClientRect();
+    if(rect.top <= 140) current = sec.id;
+  });
+  navlinks.forEach(l=>{
+    l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+  });
+  topBtn.classList.toggle('show', window.scrollY > 500);
+}
+window.addEventListener('scroll', onScroll);
+onScroll();
+
+topBtn.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
+</script>
+
+</body>
+</html>
