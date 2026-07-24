@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BJT &amp; MOSFET — Field Reference</title>
+<style>
+:root{
+  --bg:#0a1210;
+  --panel:#0e1a17;
+  --panel2:#0d1a1f;
+  --line:#1d3b32;
+  --copper:#c9834a;
+  --copper-bright:#e8a566;
+  --teal:#5fe6cf;
+  --teal-dim:#2d6e63;
+  --text:#dbe8e2;
+  --text-dim:#8fa79d;
+  --amber:#e0b34a;
+  --red:#e2685a;
+  --blue:#6fa8dc;
+  --purple:#b090e0;
+  --mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --sans: 'IBM Plex Sans', Arial, sans-serif;
+}
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  line-height:1.6;
+  font-size:15.5px;
+}
+
+/* PCB trace texture background */
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(95,230,207,0.06) 1px, transparent 1px);
+  background-size: 26px 26px;
+  pointer-events:none;
+  z-index:0;
+}
+
+.layout{display:flex; max-width:1400px; margin:0 auto; position:relative; z-index:1;}
+
+/* ---- Sidebar ---- */
+nav.toc{
+  width:260px; min-width:260px;
+  position:sticky; top:0; align-self:flex-start;
+  height:100vh; overflow-y:auto;
+  padding:28px 18px 40px 22px;
+  border-right:1px solid var(--line);
+}
+nav.toc .brand{
+  font-family:var(--mono); font-weight:700; color:var(--copper-bright);
+  font-size:13px; letter-spacing:2px; text-transform:uppercase;
+  margin-bottom:4px;
+}
+nav.toc .brand small{display:block; color:var(--text-dim); font-weight:400; letter-spacing:1px; margin-top:4px; font-size:11px;}
+nav.toc ol{list-style:none; margin:22px 0 0; padding:0; counter-reset:sec;}
+nav.toc li{counter-increment:sec; margin-bottom:2px;}
+nav.toc a{
+  display:flex; gap:10px; align-items:baseline;
+  color:var(--text-dim); text-decoration:none; font-size:12.5px;
+  padding:7px 8px; border-radius:3px; border-left:2px solid transparent;
+  transition:all .15s;
+}
+nav.toc a::before{
+  content:counter(sec,decimal-leading-zero);
+  font-family:var(--mono); color:var(--teal-dim); font-size:11px;
+}
+nav.toc a:hover{color:var(--teal); border-left-color:var(--teal); background:rgba(95,230,207,0.05);}
+
+/* ---- Main ---- */
+main{flex:1; min-width:0; padding:38px 48px 100px;}
+
+.hero{
+  border:1px solid var(--line); border-radius:6px;
+  background:linear-gradient(160deg, var(--panel), var(--panel2));
+  padding:36px 40px; margin-bottom:46px; position:relative; overflow:hidden;
+}
+.hero::after{
+  content:""; position:absolute; right:-40px; top:-40px; width:220px; height:220px;
+  border:1px solid var(--teal-dim); border-radius:50%; opacity:.25;
+}
+.hero .eyebrow{font-family:var(--mono); color:var(--teal); font-size:12px; letter-spacing:3px; text-transform:uppercase;}
+.hero h1{font-size:2.3em; margin:10px 0 6px; color:#f2f7f4; letter-spacing:-0.5px;}
+.hero p{color:var(--text-dim); max-width:640px; margin:0;}
+.pin-strip{display:flex; gap:18px; margin-top:26px; flex-wrap:wrap;}
+.pin{font-family:var(--mono); font-size:11.5px; color:var(--copper-bright); border:1px solid var(--copper); border-radius:20px; padding:4px 12px; background:rgba(201,131,74,0.08);}
+
+h2.sec-title{
+  font-size:1.55em; color:#f2f7f4; margin:0 0 6px; letter-spacing:-.3px;
+  display:flex; align-items:center; gap:14px;
+}
+h2.sec-title .tag{font-family:var(--mono); font-size:12px; color:var(--copper-bright); background:rgba(201,131,74,.12); border:1px solid var(--copper); padding:3px 10px; border-radius:3px;}
+.sec-sub{color:var(--text-dim); font-size:13.5px; margin:0 0 22px; font-style:italic;}
+
+section{margin-bottom:64px; scroll-margin-top:20px;}
+
+.trace-divider{
+  display:flex; align-items:center; gap:0; margin:0 0 30px;
+  color:var(--teal-dim);
+}
+.trace-divider::before, .trace-divider::after{content:""; flex:1; height:1px; background:linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);}
+.trace-divider .via{width:6px;height:6px;border-radius:50%; background:var(--teal-dim); margin:0 8px;}
+
+.grid{display:grid; gap:16px;}
+.grid-2{grid-template-columns:1fr 1fr;}
+.grid-3{grid-template-columns:1fr 1fr 1fr;}
+@media(max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+
+.card{
+  border:1px solid var(--line); border-radius:6px; background:var(--panel);
+  padding:20px 22px;
+}
+.card h3{margin:0 0 10px; font-size:1em; color:var(--teal); letter-spacing:.3px;}
+.card h3 .num{color:var(--copper-bright); font-family:var(--mono); margin-right:6px;}
+.card p, .card li{color:var(--text); font-size:14px;}
+.card ul{margin:8px 0 0; padding-left:18px;}
+.card.copper{border-color:var(--copper); background:rgba(201,131,74,0.05);}
+.card.copper h3{color:var(--copper-bright);}
+.card.red{border-color:#5e2e2a; background:rgba(226,104,90,0.06);}
+.card.red h3{color:var(--red);}
+.card.blue{border-color:#284a6e; background:rgba(111,168,220,0.06);}
+.card.blue h3{color:var(--blue);}
+.card.purple{border-color:#4a3966; background:rgba(176,144,224,0.06);}
+.card.purple h3{color:var(--purple);}
+.card.amber{border-color:#5e4d24; background:rgba(224,179,74,0.06);}
+.card.amber h3{color:var(--amber);}
+
+code, .eq{
+  font-family:var(--mono); background:#0c1815; border:1px solid var(--line);
+  padding:2px 7px; border-radius:3px; color:var(--copper-bright); font-size:13.5px;
+}
+.eq-block{
+  font-family:var(--mono); background:#0c1815; border:1px solid var(--line); border-left:3px solid var(--copper);
+  padding:14px 18px; border-radius:4px; margin:14px 0; color:var(--copper-bright); font-size:14.5px; overflow-x:auto;
+}
+
+table{width:100%; border-collapse:collapse; margin:16px 0; font-size:13.5px;}
+th{
+  background:#0d201b; color:var(--teal); text-align:left; font-family:var(--mono);
+  font-size:11.5px; letter-spacing:.5px; text-transform:uppercase; padding:10px 12px; border-bottom:1px solid var(--copper);
+}
+td{padding:9px 12px; border-bottom:1px solid var(--line); color:var(--text);}
+tr:hover td{background:rgba(95,230,207,0.03);}
+
+.badge{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 8px; border-radius:10px; letter-spacing:.5px;}
+.badge.ok{background:rgba(95,230,207,.12); color:var(--teal); border:1px solid var(--teal-dim);}
+.badge.warn{background:rgba(224,179,74,.12); color:var(--amber); border:1px solid #5e4d24;}
+.badge.danger{background:rgba(226,104,90,.12); color:var(--red); border:1px solid #5e2e2a;}
+
+.circuit-wrap{
+  border:1px solid var(--line); border-radius:6px; background:#081310;
+  padding:18px; margin:16px 0;
+}
+.circuit-wrap svg{width:100%; height:auto; display:block;}
+.circuit-caption{font-family:var(--mono); font-size:12px; color:var(--text-dim); margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
+.circuit-caption b{color:var(--teal);}
+
+.why-box{
+  border-left:3px solid var(--teal); background:rgba(95,230,207,0.04);
+  padding:14px 20px; margin:16px 0; border-radius:0 4px 4px 0;
+}
+.why-box .lbl{font-family:var(--mono); color:var(--teal); font-size:11.5px; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px;}
+
+.checklist{list-style:none; padding:0; margin:14px 0;}
+.checklist li{
+  padding:10px 14px; margin-bottom:6px; border:1px solid var(--line); border-radius:4px;
+  background:var(--panel); display:flex; gap:12px;
+}
+.checklist li b{color:var(--copper-bright); min-width:170px; font-family:var(--mono); font-size:12.5px;}
+.checklist li span{color:var(--text-dim); font-size:13.5px;}
+
+.footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--line);
+  color:var(--text-dim); font-size:12px; font-family:var(--mono); text-align:center;
+}
+
+.callout-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0;}
+.stat{border:1px solid var(--line); border-radius:5px; padding:12px 14px; background:var(--panel);}
+.stat .v{font-family:var(--mono); font-size:1.3em; color:var(--copper-bright); font-weight:600;}
+.stat .l{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; margin-top:2px;}
+
+a.jump{color:var(--teal); text-decoration:none; border-bottom:1px dotted var(--teal-dim);}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <div class="brand">Field Reference<small>BJT · MOSFET · IGBT design notes</small></div>
+  <ol>
+    <li><a href="#bjt">BJT Fundamentals</a></li>
+    <li><a href="#mosfet-intro">MOSFET Fundamentals</a></li>
+    <li><a href="#family">MOSFET Family Tree</a></li>
+    <li><a href="#material">By Semiconductor Material</a></li>
+    <li><a href="#terminals">Terminals &amp; Parasitics</a></li>
+    <li><a href="#gatecharge">Gate Charge &amp; Miller</a></li>
+    <li><a href="#losses">Conduction &amp; Switching Loss</a></li>
+    <li><a href="#compare">BJT vs MOSFET vs IGBT</a></li>
+    <li><a href="#circuits">Application Circuits</a></li>
+    <li><a href="#selection">Component Selection Guide</a></li>
+    <li><a href="#cheatsheet">Equation Cheat-Sheet</a></li>
+  </ol>
+</nav>
+
+<main>
+
+  <div class="hero">
+    <div class="eyebrow">// Power electronics · switching devices</div>
+    <h1>BJT &amp; MOSFET — a working engineer's reference</h1>
+    <p>Everything from silicon structure to gate-drive design, loss budgeting, and the exact circuit topology to reach for — written for someone about to put these parts on a schematic, not just study for an exam.</p>
+    <div class="pin-strip">
+      <span class="pin">GATE / BASE</span><span class="pin">DRAIN / COLLECTOR</span><span class="pin">SOURCE / EMITTER</span><span class="pin">R<sub>DS(on)</sub></span><span class="pin">Q<sub>G</sub></span><span class="pin">SOA</span>
+    </div>
+  </div>
+
+  <!-- ================= BJT ================= -->
+  <section id="bjt">
+    <h2 class="sec-title"><span class="tag">01</span>BJT Fundamentals</h2>
+    <p class="sec-sub">Bipolar Junction Transistor — the current-controlled original</p>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>What it is</h3>
+        <p>A three-terminal, <b>current-controlled</b> device built from two back-to-back PN junctions (NPN or PNP). Terminals: <b>Base (B)</b>, <b>Collector (C)</b>, <b>Emitter (E)</b>. A small base current controls a much larger collector current.</p>
+        <div class="eq-block">I_C = β · I_B &nbsp;&nbsp;(β = h_FE, typically 50–500)</div>
+        <p><b>Four rules that never change (NPN):</b></p>
+        <ul>
+          <li>Collector must sit more positive than the Emitter</li>
+          <li>Base–Emitter junction is a forward diode (~0.6–0.7 V ON)</li>
+          <li>Never exceed the I_C, I_B, or V_CE absolute maximums</li>
+          <li>Never design a circuit that depends on an exact β value — it varies 3–5× across the same part number and with temperature</li>
+        </ul>
+      </div>
+      <div class="card copper">
+        <h3>The three operating regions</h3>
+        <table>
+          <tr><th>Region</th><th>Condition</th><th>Behaviour</th></tr>
+          <tr><td>Cut-off</td><td>I_B = 0</td><td>Open switch, I_C ≈ 0</td></tr>
+          <tr><td>Active</td><td>0 &lt; V_BE(on), V_CE &gt; V_CE(sat)</td><td>Amplifier: I_C = β·I_B</td></tr>
+          <tr><td>Saturation</td><td>V_CE ≈ 0.2 V</td><td>Closed switch, fully ON</td></tr>
+        </table>
+        <p>On the I_C–V_CE output-curve family (I_C vs V_CE for a family of I_B steps): the <b>steep left edge</b> is saturation, the <b>flat plateau</b> is the active region where I_C is set by I_B (current-source behaviour), and a slight upward slope across the flat region is the <b>Early effect</b> (finite output resistance). I_B = 0 collapses the whole family to the cut-off line.</p>
+      </div>
+    </div>
+
+    <div class="why-box">
+      <div class="lbl">Why this matters on a schematic</div>
+      Because I_C tracks I_B and β drifts with temperature and from unit to unit, a BJT switch design must saturate hard (drive I_B well beyond I_C/β_min) rather than relying on a specific gain — that's rule 4 above, and it's the single most common BJT design mistake.
+    </div>
+  </section>
+
+  <!-- ================= MOSFET INTRO ================= -->
+  <section id="mosfet-intro">
+    <h2 class="sec-title"><span class="tag">02</span>MOSFET Fundamentals</h2>
+    <p class="sec-sub">Metal-Oxide-Semiconductor FET — the voltage-controlled workhorse of power electronics</p>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Definition &amp; terminals</h3>
+        <p>A <b>voltage-controlled</b> transistor, dominant in digital logic and power switching.</p>
+        <ul>
+          <li><b>Gate (G)</b> — control terminal, insulated by SiO₂, draws essentially zero DC current</li>
+          <li><b>Drain (D)</b> — output/power terminal, usually tied to the metal tab / heatsink in a TO-220</li>
+          <li><b>Source (S)</b> — reference terminal for V_GS</li>
+        </ul>
+        <div class="eq-block">I_D = κ(V_GS − V_th)²  &nbsp;(above threshold, saturation region)</div>
+      </div>
+      <div class="card blue">
+        <h3>Why MOSFETs replaced BJTs in most designs</h3>
+        <ul>
+          <li>Zero DC gate current (input R &gt; 10¹⁴ Ω) → almost no drive power needed once switched</li>
+          <li><b>No thermal runaway</b> — R_DS(on) rises with temperature, so current self-limits (this is what makes direct paralleling safe, unlike BJTs)</li>
+          <li>Faster — majority-carrier device, no minority-carrier storage time</li>
+          <li>Easy to parallel for higher current</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card amber" style="margin-top:16px;">
+      <h3>Reading the characteristic curves</h3>
+      <div class="grid grid-2">
+        <div>
+          <b>Transfer curve (I_D vs V_GS):</b> I_D = 0 below V_th (device OFF). Above V_th it rises with a <b>quadratic</b> shape — this is the square-law region used for analog/linear operation.
+        </div>
+        <div>
+          <b>Output curves (I_D vs V_DS, family of V_GS):</b> the steep rising portion is the <b>linear/triode region</b> (behaves like a voltage-controlled resistor — this is where a power MOSFET switch operates, sized for the lowest possible R_DS(on)). The flat portion is the <b>saturation region</b> (constant-current, amplifier-style operation). Higher V_GS pushes more current before flattening out.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAMILY TREE ================= -->
+  <section id="family">
+    <h2 class="sec-title"><span class="tag">03</span>MOSFET Family Tree</h2>
+    <p class="sec-sub">Channel type and depletion vs enhancement mode</p>
+
+    <div class="grid grid-2">
+      <div class="card blue">
+        <h3>N-Channel (Enhancement)</h3>
+        <ul>
+          <li>Electrons carry current → fast, low R_DS(on)</li>
+          <li>V_GS must be <b>positive</b> (&gt; V_th) to turn ON</li>
+          <li>Normally-OFF — used in ~95% of power designs</li>
+          <li>Examples: 2N7000, IRFZ44N, IRF540</li>
+        </ul>
+      </div>
+      <div class="card red">
+        <h3>P-Channel (Enhancement)</h3>
+        <ul>
+          <li>Holes carry current → higher R_DS(on), slower</li>
+          <li>V_GS must be <b>negative</b> (&lt; −V_th) to turn ON</li>
+          <li>Used mainly in high-side switches (simpler gate drive vs N-ch high-side)</li>
+          <li>Examples: IRF9540, FQP27P06</li>
+        </ul>
+      </div>
+      <div class="card amber">
+        <h3>Depletion Mode (Normally-ON)</h3>
+        <ul>
+          <li>Channel already exists at V_GS = 0</li>
+          <li>A negative V_GS is required to pinch it off</li>
+          <li>Used in current sources / current limiters</li>
+          <li>Examples: DN2535, LND150</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>JFET vs MOSFET</h3>
+        <ul>
+          <li>JFET gate = PN junction — must stay reverse-biased, nA-level leakage</li>
+          <li>MOSFET gate = SiO₂ insulated — zero DC gate current, but ±20 V absolute max and ESD-sensitive (a static discharge can punch through the oxide permanently)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MATERIAL ================= -->
+  <section id="material">
+    <h2 class="sec-title"><span class="tag">04</span>MOSFETs by Semiconductor Material</h2>
+    <p class="sec-sub">Same device physics, different substrate — this is what actually sets voltage, speed, and cost</p>
+
+    <div class="grid grid-3">
+      <div class="card blue"><h3>Silicon (Si)</h3><ul><li>1.1 eV bandgap · T_j 150 °C · ≤ 650 V</li><li>Cheapest, most mature process</li><li>Use: &lt; 200 V supplies, motor drives</li><li>IRFZ44N, IRF540N</li></ul></div>
+      <div class="card"><h3>Super-Junction Si</h3><ul><li>P/N pillar structure breaks the normal R_DS(on)-vs-voltage tradeoff</li><li>500–900 V range</li><li>Use: PFC stages, offline SMPS</li><li>CoolMOS, MDmesh</li></ul></div>
+      <div class="card amber"><h3>Silicon Carbide (SiC)</h3><ul><li>3.3 eV bandgap · T_j 200 °C · 650–4500 V</li><li>Best above 600 V — much lower switching loss than Si at high voltage</li><li>Use: EV traction, solar inverters</li><li>Wolfspeed C3M</li></ul></div>
+      <div class="card purple"><h3>GaN HEMT</h3><ul><li>3.4 eV bandgap · 40–650 V · MHz+ switching</li><li>Lowest switching losses of any category — <b>no body diode</b> to reverse-recover</li><li>GaN Systems, EPC</li></ul></div>
+      <div class="card copper"><h3>DMOS (Power Si)</h3><ul><li>Vertical structure — Drain is the die back / package tab</li><li>Has an intrinsic body diode (parasitic, from the P-body/N-drift junction)</li><li>Structure used in essentially all discrete power MOSFETs</li></ul></div>
+      <div class="card red"><h3>IGBT (reference point)</h3><ul><li>MOS gate driving a BJT output stage — voltage-controlled input, bipolar-level conduction</li><li>600–6500 V</li><li>Slower (tail current) but wins decisively above ~400 V</li><li>STGP10NC60</li></ul></div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:16px;">
+      <div class="card">
+        <h3>Max blocking voltage (typical, V)</h3>
+        <table>
+          <tr><td>Si</td><td>650</td></tr><tr><td>SJ-Si</td><td>900</td></tr>
+          <tr><td>GaN</td><td>650</td></tr><tr><td>SiC</td><td>4,500</td></tr>
+          <tr><td>IGBT</td><td>6,500</td></tr>
+        </table>
+        <p style="color:var(--text-dim); font-size:12.5px;"><b>Takeaway:</b> IGBT and SiC dominate above 1 kV; plain silicon MOSFET tops out around 900 V.</p>
+      </div>
+      <div class="card">
+        <h3>Practical max switching frequency</h3>
+        <table>
+          <tr><td>IGBT</td><td>~50 kHz</td></tr><tr><td>Si</td><td>~500 kHz</td></tr>
+          <tr><td>SJ-Si</td><td>~700 kHz</td></tr><tr><td>SiC</td><td>~1 MHz</td></tr>
+          <tr><td>GaN</td><td>~10 MHz</td></tr>
+        </table>
+        <p style="color:var(--text-dim); font-size:12.5px;"><b>Takeaway:</b> GaN is 10–100× faster than Si → dramatically smaller magnetics for the same power.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TERMINALS / PARASITICS ================= -->
+  <section id="terminals">
+    <h2 class="sec-title"><span class="tag">05</span>Gate · Drain · Source Deep Dive</h2>
+    <p class="sec-sub">The parasitics that actually determine switching behaviour</p>
+
+    <div class="grid grid-2">
+      <div class="card amber">
+        <h3>Parasitic capacitances vs V_DS</h3>
+        <p><b>C_iss, C_oss, C_rss</b> — all three drop sharply as V_DS rises from zero and then flatten out at higher voltage.</p>
+        <div class="checklist">
+          <li><b>C_iss</b><span>= C_gs + C_gd. Input capacitance the gate driver has to charge every switching cycle.</span></li>
+          <li><b>C_oss</b><span>= C_ds + C_gd. Output capacitance; stores energy every cycle (½·C_oss·V_DS² lost each transition) and rings with circuit inductance.</span></li>
+          <li><b>C_rss</b><span>= C_gd, the "Miller" capacitance. Small in value but disproportionately important — see Gate Charge below.</span></li>
+        </div>
+      </div>
+      <div class="card purple">
+        <h3>Body (Source→Drain) diode</h3>
+        <p>Intrinsic to the vertical DMOS structure. Conducts when Source is positive with respect to Drain, with a forward knee around <b>0.7 V</b>, and the forward current rises steeply (exponentially) beyond that knee — same shape as any silicon diode.</p>
+        <p>Useful for freewheeling / synchronous-rectification duty, but it is <b>slow</b>: its reverse-recovery charge (Q_rr) causes real loss and shoot-through risk any time it's forced to turn off quickly (e.g. in a synchronous buck's low-side FET). GaN devices have no body diode at all, which is a major reason they switch so cleanly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= GATE CHARGE ================= -->
+  <section id="gatecharge">
+    <h2 class="sec-title"><span class="tag">06</span>Gate Charge &amp; the Miller Plateau</h2>
+    <p class="sec-sub">The single most important curve for sizing a gate driver</p>
+
+    <div class="circuit-wrap">
+      <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
+        <style>
+          .ax{stroke:#2d5147;stroke-width:1.5;}
+          .lbl{fill:#8fa79d;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+          .curve{fill:none;stroke:#5fe6cf;stroke-width:2.5;}
+          .region{fill:rgba(95,230,207,0.06); stroke:none;}
+        </style>
+        <!-- axes -->
+        <line x1="70" y1="30" x2="70" y2="250" class="ax"/>
+        <line x1="70" y1="250" x2="700" y2="250" class="ax"/>
+        <text x="20" y="35" class="lbl">V_GS</text>
+        <text x="650" y="272" class="lbl">Q_G (nC)</text>
+        <!-- region shading -->
+        <rect x="70" y="30" width="140" height="220" class="region"/>
+        <rect x="210" y="30" width="220" height="220" fill="rgba(224,179,74,0.08)"/>
+        <rect x="430" y="30" width="230" height="220" fill="rgba(111,168,220,0.06)"/>
+        <!-- curve: rises, plateau, rises -->
+        <polyline class="curve" points="70,250 100,205 210,150 210,150 430,150 500,120 560,60 620,60 660,60"/>
+        <line x1="210" y1="150" x2="210" y2="250" stroke="#2d5147" stroke-dasharray="3,3"/>
+        <line x1="430" y1="150" x2="430" y2="250" stroke="#2d5147" stroke-dasharray="3,3"/>
+        <text x="90" y="270" class="lbl" fill="#c9834a">① Ciss charge</text>
+        <text x="255" y="270" class="lbl" fill="#e0b34a">② Miller plateau</text>
+        <text x="500" y="270" class="lbl" fill="#6fa8dc">③ full drive</text>
+        <text x="80" y="140" class="lbl">V_th</text>
+      </svg>
+      <div class="circuit-caption"><b>Gate charge curve</b> — V_GS vs Q_G. This is measured, not calculated, and is on every power MOSFET datasheet.</div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>The three regions</h3>
+        <ul>
+          <li><b>Region 1</b> — C_iss charges up to V_th; drain current is still zero.</li>
+          <li><b>Region 2 — Miller plateau</b> — V_GS goes flat while V_DS collapses from the rail down to R_DS(on)·I_D. All the gate current here is going into C_gd (C_rss), not raising V_GS. This is the region where switching loss actually happens, because V and I overlap.</li>
+          <li><b>Region 3</b> — V_GS rises the rest of the way to full drive voltage, pulling R_DS(on) down to its final low value.</li>
+        </ul>
+      </div>
+      <div class="card copper">
+        <h3>Design rule</h3>
+        <p>Gate drive current sets switching speed:</p>
+        <div class="eq-block">I_g = Q_G / t_switch</div>
+        <p>Example: 100 nC of total gate charge switched in 10 ns needs <b>10 A</b> of peak gate drive current. A logic-level GPIO pin cannot do this — you need a proper gate driver IC (or discrete totem-pole stage) sized for that peak current, not just the DC logic level.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LOSSES ================= -->
+  <section id="losses">
+    <h2 class="sec-title"><span class="tag">07</span>Conduction &amp; Switching Losses</h2>
+    <p class="sec-sub">Where the power actually goes in a MOSFET switch</p>
+
+    <div class="grid grid-2">
+      <div class="card red">
+        <h3>Conduction loss — I²R heating while fully ON</h3>
+        <div class="eq-block">P_cond = I_D² × R_DS(on) × D</div>
+        <p>Example: 10 A through 50 mΩ at 25 °C → P = 100 × 0.05 = <b>5 W</b>.<br>
+        At 125 °C junction temperature R_DS(on) roughly doubles to ~125 mΩ → <b>12.5 W</b> for the same current. R_DS(on) has a strong positive temperature coefficient — always design against the <em>hot</em> value, never the 25 °C datasheet headline number.</p>
+        <p><b>How to reduce it:</b> lower-R_DS(on) part · parallel MOSFETs (safe because R_DS(on) self-balances with temperature) · full gate drive (V_GS = 10–15 V, not a marginal 4–5 V) · SiC above 600 V.</p>
+      </div>
+      <div class="card amber">
+        <h3>Switching loss — power during ON↔OFF transitions</h3>
+        <div class="eq-block">E_on ≈ ½·V_DS·I_D·t_on
+E_off ≈ ½·V_DS·I_D·t_off</div>
+        <p><b>Turn-on:</b> V_DS falls while I_D rises → the overlap region dissipates energy; the Miller plateau and the body diode's reverse-recovery charge (Q_rr, from the diode being reverse-recovered by the complementary switch) both slow this down.</p>
+        <p><b>Turn-off:</b> V_DS rises while I_D falls → same overlap mechanism in reverse. A faster/stronger gate driver directly reduces this loss.</p>
+        <p><b>How to reduce it:</b> low-Q_G part · strong gate driver · low C_rss · Schottky diodes to cut reverse-recovery loss · ZVS/ZCS topologies · GaN for MHz-class designs.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Total loss budget</h3>
+      <div class="eq-block">P_total = P_cond + ½·V_DS·I_D·(t_on + t_off)·f_sw + Q_G·V_GS·f_sw</div>
+      <p>Switching loss grows <b>linearly with switching frequency</b> while conduction loss doesn't care about frequency at all — this is exactly why there's always a frequency where a design's total loss bottoms out, and why raising f_sw to shrink magnetics eventually costs you back in switch dissipation (a 10 A / 48 V example easily goes from ~5 W total at 10 kHz to ~30 W at 500 kHz on the same part).</p>
+    </div>
+  </section>
+
+  <!-- ================= COMPARISON ================= -->
+  <section id="compare">
+    <h2 class="sec-title"><span class="tag">08</span>BJT vs MOSFET vs IGBT</h2>
+    <p class="sec-sub">Full technical comparison and when to reach for each</p>
+
+    <table>
+      <tr><th>Property</th><th>BJT (NPN)</th><th>MOSFET (N-ch)</th><th>IGBT</th></tr>
+      <tr><td>Control</td><td>Current (I_B → I_C)</td><td>Voltage (V_GS → I_D)</td><td>Voltage (V_GE → I_C)</td></tr>
+      <tr><td>Input resistance</td><td>~1–10 kΩ</td><td>&gt;10¹⁴ Ω</td><td>&gt;10¹⁴ Ω</td></tr>
+      <tr><td>ON-state drop</td><td>V_CE(sat) 0.2–1.5 V</td><td>I_D × R_DS(on)</td><td>V_CE(sat) 1.5–3 V</td></tr>
+      <tr><td>Thermal runaway</td><td><span class="badge danger">Yes</span></td><td><span class="badge ok">No — self-balancing</span></td><td><span class="badge warn">Partial</span></td></tr>
+      <tr><td>Paralleling</td><td>Needs R_E ballast resistors</td><td>Direct — safe</td><td>Needs care</td></tr>
+      <tr><td>Speed</td><td>Slower (minority carrier)</td><td>Fast (majority carrier)</td><td>Slowest (tail current)</td></tr>
+      <tr><td>Max voltage</td><td>~400 V</td><td>900 V Si / 4500 V SiC</td><td>600–6500 V</td></tr>
+      <tr><td>Frequency</td><td>DC–100 kHz</td><td>DC–MHz (GaN: GHz-adjacent)</td><td>DC–50 kHz</td></tr>
+      <tr><td>Cost</td><td>Very low</td><td>Low–moderate</td><td>Moderate–high</td></tr>
+      <tr><td>Best use</td><td>Amplifiers</td><td>Power switching, digital, RF</td><td>&gt;400 V power</td></tr>
+    </table>
+
+    <div class="grid grid-3">
+      <div class="card copper"><h3>Use BJT when…</h3><ul><li>Low-power amplifiers</li><li>Precision analog (g_m = I_C/V_T)</li><li>Darlington for high gain</li><li>Ultra-low cost is the priority</li></ul></div>
+      <div class="card blue"><h3>Use MOSFET when…</h3><ul><li>All digital logic</li><li>Power switching &lt; 400 V</li><li>High frequency (&gt;100 kHz)</li><li>Paralleling for current</li></ul></div>
+      <div class="card purple"><h3>Use IGBT when…</h3><ul><li>High voltage &gt; 400 V</li><li>Medium frequency (&lt; 50 kHz)</li><li>EV / solar inverters</li><li>Industrial motor drives</li></ul></div>
+    </div>
+  </section>
+
+  <!-- ================= APPLICATION CIRCUITS ================= -->
+  <section id="circuits">
+    <h2 class="sec-title"><span class="tag">09</span>Application Circuits</h2>
+    <p class="sec-sub">Why each device is used, where, and the exact topology to reach for</p>
+
+    <!-- Circuit 1: BJT switch -->
+    <h3 style="color:var(--copper-bright); font-family:var(--mono); font-size:14px; letter-spacing:1px; margin-top:30px;">A · NPN BJT LOW-SIDE SWITCH (relay / inductive load)</h3>
+    <div class="circuit-wrap">
+      <svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#dbe8e2" stroke-width="1.8" fill="none">
+          <!-- +Vcc rail -->
+          <line x1="380" y1="20" x2="380" y2="55"/>
+          <text x="380" y="15" fill="#e0b34a" font-family="monospace" font-size="12" text-anchor="middle">+V_CC</text>
+          <!-- relay/load coil -->
+          <path d="M380,55 q10,10 0,20 q-10,10 0,20 q10,10 0,20 q-10,10 0,20" />
+          <text x="410" y="90" fill="#8fa79d" font-family="monospace" font-size="11">LOAD (relay coil)</text>
+          <line x1="380" y1="115" x2="380" y2="140"/>
+          <!-- flyback diode across load -->
+          <line x1="420" y1="55" x2="420" y2="140"/>
+          <line x1="380" y1="55" x2="420" y2="55"/>
+          <line x1="380" y1="140" x2="420" y2="140"/>
+          <path d="M414,110 L426,110 L420,122 Z" fill="#e2685a" stroke="none"/>
+          <line x1="420" y1="122" x2="420" y2="130"/>
+          <line x1="414" y1="122" x2="426" y2="122" stroke="#e2685a"/>
+          <text x="435" y="118" fill="#e2685a" font-family="monospace" font-size="11">flyback</text>
+          <!-- collector to load -->
+          <line x1="380" y1="140" x2="380" y2="155"/>
+          <!-- NPN transistor symbol -->
+          <line x1="380" y1="155" x2="380" y2="175"/>
+          <line x1="360" y1="175" x2="400" y2="175" stroke="#5fe6cf"/>
+          <line x1="380" y1="175" x2="380" y2="230"/>
+          <line x1="330" y1="185" x2="360" y2="178"/>
+          <path d="M355,190 L360,178 L343,182 Z" fill="#5fe6cf" stroke="none"/>
+          <text x="360" y="150" fill="#dbe8e2" font-family="monospace" font-size="11">C</text>
+          <text x="300" y="182" fill="#dbe8e2" font-family="monospace" font-size="11">B</text>
+          <text x="388" y="222" fill="#dbe8e2" font-family="monospace" font-size="11">E</text>
+          <!-- base resistor + drive -->
+          <rect x="260" y="176" width="34" height="12" fill="none" stroke="#c9834a"/>
+          <line x1="230" y1="182" x2="260" y2="182"/>
+          <line x1="150" y1="182" x2="230" y2="182"/>
+          <text x="255" y="172" fill="#c9834a" font-family="monospace" font-size="10">R_B</text>
+          <text x="120" y="186" fill="#dbe8e2" font-family="monospace" font-size="11">GPIO</text>
+          <!-- emitter to ground -->
+          <line x1="380" y1="230" x2="380" y2="250"/>
+          <line x1="360" y1="250" x2="400" y2="250"/>
+          <line x1="368" y1="257" x2="392" y2="257"/>
+          <line x1="376" y1="264" x2="384" y2="264"/>
+        </g>
+      </svg>
+      <div class="circuit-caption"><b>Why:</b> BJT saturates hard at low cost for a simple ON/OFF load. <b>R_B</b> is sized so I_B ≥ I_C(load)/β_min with margin — never trust the "typical" β on the datasheet. The <b>flyback diode</b> is mandatory across any inductive load (relay, motor, solenoid) — without it, the collapsing magnetic field generates a voltage spike that will exceed V_CE(max) and destroy the transistor the instant it turns off.</div>
+    </div>
+
+    <!-- Circuit 2: BJT amplifier -->
+    <h3 style="color:var(--copper-bright); font-family:var(--mono); font-size:14px; letter-spacing:1px; margin-top:30px;">B · NPN COMMON-EMITTER AMPLIFIER (voltage-divider bias)</h3>
+    <div class="circuit-wrap">
+      <svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#dbe8e2" stroke-width="1.8" fill="none">
+          <line x1="380" y1="15" x2="380" y2="40"/>
+          <text x="380" y="10" fill="#e0b34a" font-family="monospace" font-size="12" text-anchor="middle">+V_CC</text>
+          <rect x="365" y="40" width="30" height="14" stroke="#c9834a"/>
+          <text x="405" y="52" fill="#c9834a" font-family="monospace" font-size="10">R_C</text>
+          <line x1="380" y1="54" x2="380" y2="90"/>
+          <!-- output coupling cap -->
+          <line x1="380" y1="90" x2="380" y2="100"/>
+          <line x1="380" y1="100" x2="440" y2="100"/>
+          <line x1="440" y1="93" x2="440" y2="107"/>
+          <line x1="446" y1="93" x2="446" y2="107"/>
+          <text x="435" y="88" fill="#8fa79d" font-family="monospace" font-size="10">Cout</text>
+          <line x1="446" y1="100" x2="480" y2="100"/>
+          <text x="485" y="104" fill="#8fa79d" font-family="monospace" font-size="10">Vout</text>
+          <!-- transistor -->
+          <line x1="380" y1="90" x2="380" y2="110"/>
+          <line x1="360" y1="130" x2="400" y2="130" stroke="#5fe6cf"/>
+          <line x1="380" y1="110" x2="380" y2="130"/>
+          <line x1="380" y1="130" x2="380" y2="185"/>
+          <line x1="330" y1="140" x2="360" y2="133"/>
+          <path d="M355,145 L360,133 L343,137 Z" fill="#5fe6cf" stroke="none"/>
+          <text x="300" y="137" fill="#dbe8e2" font-family="monospace" font-size="11">B</text>
+          <text x="388" y="180" fill="#dbe8e2" font-family="monospace" font-size="11">E</text>
+          <!-- bias divider R1 R2 -->
+          <line x1="230" y1="15" x2="230" y2="40"/>
+          <line x1="230" y1="15" x2="380" y2="15"/>
+          <rect x="215" y="40" width="30" height="16" stroke="#c9834a"/>
+          <text x="250" y="52" fill="#c9834a" font-family="monospace" font-size="10">R1</text>
+          <line x1="230" y1="56" x2="230" y2="137"/>
+          <line x1="230" y1="137" x2="330" y2="137"/>
+          <rect x="215" y="150" width="30" height="16" stroke="#c9834a"/>
+          <text x="250" y="163" fill="#c9834a" font-family="monospace" font-size="10">R2</text>
+          <line x1="230" y1="137" x2="230" y2="150"/>
+          <line x1="230" y1="166" x2="230" y2="185"/>
+          <!-- input coupling -->
+          <line x1="150" y1="137" x2="180" y2="137"/>
+          <line x1="180" y1="130" x2="180" y2="144"/>
+          <line x1="186" y1="130" x2="186" y2="144"/>
+          <line x1="186" y1="137" x2="230" y2="137"/>
+          <text x="120" y="141" fill="#8fa79d" font-family="monospace" font-size="10">Vin</text>
+          <!-- emitter resistor + bypass -->
+          <rect x="365" y="185" width="30" height="16" stroke="#c9834a"/>
+          <text x="405" y="197" fill="#c9834a" font-family="monospace" font-size="10">R_E</text>
+          <line x1="380" y1="201" x2="380" y2="230"/>
+          <line x1="360" y1="230" x2="400" y2="230"/>
+          <line x1="368" y1="237" x2="392" y2="237"/>
+          <line x1="376" y1="244" x2="384" y2="244"/>
+          <line x1="230" y1="185" x2="230" y2="230"/>
+          <line x1="230" y1="230" x2="360" y2="230"/>
+          <line x1="210" y1="230" x2="230" y2="230"/>
+          <line x1="210" y1="223" x2="210" y2="237"/>
+          <line x1="204" y1="223" x2="204" y2="237"/>
+          <text x="165" y="227" fill="#8fa79d" font-family="monospace" font-size="10">C_E bypass</text>
+        </g>
+      </svg>
+      <div class="circuit-caption"><b>Why:</b> R1/R2 set a stable DC base voltage independent of β (a "stiff" divider), R_E adds negative feedback that further stabilizes the bias point against β and temperature drift, and C_E bypasses R_E at AC so the stage still gets full gain. This is the standard small-signal analog building block — used where a MOSFET's gate threshold spread would make biasing awkward.</div>
+    </div>
+
+    <!-- Circuit 3: MOSFET low-side switch -->
+    <h3 style="color:var(--copper-bright); font-family:var(--mono); font-size:14px; letter-spacing:1px; margin-top:30px;">C · N-CHANNEL MOSFET LOW-SIDE SWITCH (with gate driver)</h3>
+    <div class="circuit-wrap">
+      <svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#dbe8e2" stroke-width="1.8" fill="none">
+          <line x1="400" y1="20" x2="400" y2="50"/>
+          <text x="400" y="15" fill="#e0b34a" font-family="monospace" font-size="12" text-anchor="middle">+V_BUS</text>
+          <path d="M400,50 q10,10 0,20 q-10,10 0,20 q10,10 0,20"/>
+          <text x="430" y="70" fill="#8fa79d" font-family="monospace" font-size="11">LOAD</text>
+          <line x1="400" y1="110" x2="400" y2="125"/>
+          <!-- flyback -->
+          <line x1="440" y1="50" x2="440" y2="125"/>
+          <line x1="400" y1="50" x2="440" y2="50"/>
+          <line x1="400" y1="125" x2="440" y2="125"/>
+          <path d="M434,95 L446,95 L440,107 Z" fill="#e2685a" stroke="none"/>
+          <line x1="434" y1="107" x2="446" y2="107" stroke="#e2685a"/>
+          <!-- drain -->
+          <line x1="400" y1="125" x2="400" y2="150"/>
+          <text x="405" y="145" fill="#dbe8e2" font-family="monospace" font-size="11">D</text>
+          <!-- MOSFET symbol: gate plate + channel -->
+          <line x1="385" y1="160" x2="385" y2="210" stroke="#5fe6cf"/>
+          <line x1="400" y1="150" x2="400" y2="220"/>
+          <line x1="385" y1="163" x2="400" y2="163"/>
+          <line x1="385" y1="207" x2="400" y2="207"/>
+          <line x1="400" y1="185" x2="400" y2="220"/>
+          <text x="405" y="222" fill="#dbe8e2" font-family="monospace" font-size="11">S</text>
+          <!-- gate driver IC box -->
+          <rect x="255" y="165" width="70" height="40" stroke="#b090e0"/>
+          <text x="265" y="189" fill="#b090e0" font-family="monospace" font-size="10">GATE</text>
+          <text x="265" y="200" fill="#b090e0" font-family="monospace" font-size="10">DRIVER</text>
+          <line x1="325" y1="185" x2="355" y2="185"/>
+          <rect x="355" y="179" width="26" height="12" stroke="#c9834a"/>
+          <text x="358" y="175" fill="#c9834a" font-family="monospace" font-size="9">R_G</text>
+          <line x1="381" y1="185" x2="385" y2="185"/>
+          <!-- PWM in -->
+          <line x1="180" y1="185" x2="255" y2="185"/>
+          <text x="150" y="189" fill="#8fa79d" font-family="monospace" font-size="10">PWM</text>
+          <!-- gate pulldown -->
+          <rect x="355" y="205" width="12" height="26" stroke="#c9834a"/>
+          <line x1="361" y1="185" x2="361" y2="205"/>
+          <line x1="361" y1="231" x2="361" y2="245"/>
+          <text x="368" y="222" fill="#c9834a" font-family="monospace" font-size="9">R_pd</text>
+          <!-- source to ground -->
+          <line x1="400" y1="220" x2="400" y2="245"/>
+          <line x1="361" y1="245" x2="400" y2="245"/>
+          <line x1="380" y1="245" x2="420" y2="245"/>
+          <line x1="388" y1="252" x2="412" y2="252"/>
+          <line x1="396" y1="259" x2="404" y2="259"/>
+        </g>
+      </svg>
+      <div class="circuit-caption"><b>Why each part is there:</b> a dedicated <b>gate driver IC</b> (not a bare GPIO) supplies the amp-level peak current I_g = Q_G/t_switch needed to slew through the Miller plateau quickly. <b>R_G</b> in series damps ringing from the driver-to-gate loop inductance against C_iss. <b>R_pd</b> (pull-down) holds the gate firmly at 0 V whenever the driver output is high-impedance (e.g. at power-up) — an unterminated gate can float above V_th and turn the FET partially ON. The flyback diode is required for the same reason as the BJT case.</div>
+    </div>
+
+    <!-- Circuit 4: Half bridge / bootstrap -->
+    <h3 style="color:var(--copper-bright); font-family:var(--mono); font-size:14px; letter-spacing:1px; margin-top:30px;">D · SYNCHRONOUS HALF-BRIDGE (bootstrap high-side drive)</h3>
+    <div class="circuit-wrap">
+      <svg viewBox="0 0 640 340" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#dbe8e2" stroke-width="1.8" fill="none">
+          <line x1="400" y1="15" x2="400" y2="35"/>
+          <text x="400" y="10" fill="#e0b34a" font-family="monospace" font-size="12" text-anchor="middle">+V_BUS</text>
+          <!-- HS mosfet -->
+          <line x1="400" y1="35" x2="400" y2="55"/>
+          <line x1="385" y1="65" x2="385" y2="115" stroke="#5fe6cf"/>
+          <line x1="400" y1="55" x2="400" y2="125"/>
+          <line x1="385" y1="68" x2="400" y2="68"/>
+          <line x1="385" y1="112" x2="400" y2="112"/>
+          <text x="405" y="60" fill="#dbe8e2" font-family="monospace" font-size="10">D</text>
+          <text x="405" y="130" fill="#dbe8e2" font-family="monospace" font-size="10">SW node</text>
+          <!-- bootstrap cap/diode -->
+          <line x1="330" y1="45" x2="360" y2="45"/>
+          <path d="M354,39 L366,39 L360,51 Z" fill="#e0b34a" stroke="none"/>
+          <text x="300" y="40" fill="#e0b34a" font-family="monospace" font-size="9">Vcc</text>
+          <line x1="366" y1="45" x2="385" y2="45"/>
+          <line x1="385" y1="45" x2="385" y2="65"/>
+          <line x1="330" y1="45" x2="330" y2="88"/>
+          <line x1="322" y1="82" x2="338" y2="82" stroke="#c9834a"/>
+          <line x1="322" y1="94" x2="338" y2="94" stroke="#c9834a"/>
+          <text x="255" y="90" fill="#c9834a" font-family="monospace" font-size="9">Cboot</text>
+          <line x1="330" y1="94" x2="330" y2="118"/>
+          <line x1="330" y1="118" x2="385" y2="118"/>
+          <!-- HS driver -->
+          <rect x="230" y="70" width="60" height="30" stroke="#b090e0"/>
+          <text x="238" y="88" fill="#b090e0" font-family="monospace" font-size="9">HS DRV</text>
+          <line x1="290" y1="82" x2="385" y2="82"/>
+          <!-- switch node to load -->
+          <line x1="400" y1="125" x2="400" y2="145"/>
+          <path d="M400,145 q10,10 0,20 q-10,10 0,20 q10,10 0,20"/>
+          <text x="430" y="165" fill="#8fa79d" font-family="monospace" font-size="11">LOAD</text>
+          <line x1="400" y1="205" x2="400" y2="220"/>
+          <line x1="380" y1="220" x2="420" y2="220"/>
+          <line x1="388" y1="227" x2="412" y2="227"/>
+          <line x1="396" y1="234" x2="404" y2="234"/>
+          <!-- LS mosfet -->
+          <line x1="400" y1="125" x2="400" y2="145"/>
+          <line x1="385" y1="150" x2="385" y2="200" stroke="#5fe6cf"/>
+          <line x1="400" y1="145" x2="400" y2="215"/>
+          <line x1="385" y1="153" x2="400" y2="153"/>
+          <line x1="385" y1="197" x2="400" y2="197"/>
+          <!-- LS driver -->
+          <rect x="230" y="160" width="60" height="30" stroke="#b090e0"/>
+          <text x="238" y="178" fill="#b090e0" font-family="monospace" font-size="9">LS DRV</text>
+          <line x1="290" y1="175" x2="385" y2="175"/>
+          <line x1="400" y1="215" x2="400" y2="240"/>
+          <line x1="380" y1="240" x2="420" y2="240"/>
+          <line x1="388" y1="247" x2="412" y2="247"/>
+          <line x1="396" y1="254" x2="404" y2="254"/>
+          <!-- PWM controller -->
+          <rect x="100" y="115" width="90" height="45" stroke="#6fa8dc"/>
+          <text x="110" y="135" fill="#6fa8dc" font-family="monospace" font-size="9">PWM +</text>
+          <text x="110" y="148" fill="#6fa8dc" font-family="monospace" font-size="9">DEAD-TIME</text>
+          <line x1="190" y1="128" x2="230" y2="85"/>
+          <line x1="190" y1="145" x2="230" y2="175"/>
+        </g>
+      </svg>
+      <div class="circuit-caption"><b>Why this topology:</b> the high-side N-channel FET's source sits on the switching node, so its gate must be driven <em>above</em> V_BUS — the <b>bootstrap capacitor</b> is charged toward V_CC through the boot diode whenever the switch node is low, then floats up with the source to supply the high-side driver once the switch node goes high. A P-channel high-side switch avoids this complexity (gate only needs to swing to ground) at the cost of higher R_DS(on) and slower switching, which is why N-ch + bootstrap wins for anything above a few amps or above ~100 kHz.<br><br>
+      <b>Dead-time</b> between turning one FET off and the other on is not optional: overlap causes shoot-through (both FETs briefly conducting straight across the bus, a near dead-short). Too much dead-time instead forces the <b>body diode</b> of whichever FET is about to turn on to conduct first — its slow reverse-recovery (Q_rr) then causes extra loss when the other FET turns on. Tuning dead-time is a direct tradeoff between shoot-through risk and body-diode loss.</div>
+    </div>
+
+    <div class="why-box">
+      <div class="lbl">Paralleling MOSFETs for current</div>
+      Because R_DS(on) has a positive temperature coefficient, MOSFETs naturally current-share when paralleled — a device that starts pulling more current heats up, its R_DS(on) rises, and current backs off toward the other devices. The only extra requirement is a small individual gate resistor (a few ohms) per device right at each gate, to damp any high-frequency oscillation between the parallel gates' input capacitances and driver output inductance — this is <em>not</em> optional at high di/dt even though DC sharing is inherently safe. BJTs need the opposite treatment: emitter ballast resistors, because BJT current gain <em>increases</em> with temperature, which would otherwise runaway hot devices into pulling all the current.
+    </div>
+  </section>
+
+  <!-- ================= SELECTION GUIDE ================= -->
+  <section id="selection">
+    <h2 class="sec-title"><span class="tag">10</span>Component Selection Guide</h2>
+    <p class="sec-sub">Parameters to check, in the order that actually matters, before you drop a part on a BOM</p>
+
+    <h3 style="color:var(--teal); font-family:var(--mono); font-size:13px; letter-spacing:1px;">MOSFET SELECTION CHECKLIST</h3>
+    <ul class="checklist">
+      <li><b>V_DS(max)</b><span>Rate for at least 1.3–1.5× the highest transient the drain will see (bus voltage + inductive ringing/leakage-inductance spikes), not just steady-state V_BUS.</span></li>
+      <li><b>I_D continuous / pulsed</b><span>Check both the continuous rating (thermally limited, package-dependent) and the pulsed rating (bonding-wire/SOA limited) against your actual duty cycle.</span></li>
+      <li><b>R_DS(on)</b><span>Read it at the temperature and V_GS your driver will actually deliver — the datasheet headline number is usually at 25 °C and full V_GS, both optimistic.</span></li>
+      <li><b>V_GS(th) and its spread</b><span>Threshold varies unit-to-unit and drops with temperature. For logic-level drive (3.3/5 V), confirm the part is specified "logic level," not just "low R_DS(on) at 10 V."</span></li>
+      <li><b>Q_G (total gate charge)</b><span>Directly sets driver current requirement and switching speed — smaller Q_G switches faster for the same driver, but often trades off against R_DS(on) (figure of merit R_DS(on)×Q_G is a useful single number to compare parts).</span></li>
+      <li><b>SOA (Safe Operating Area)</b><span>Especially for linear-region use (hot-swap, linear regulators, motor braking) — a part can be well within V_DS(max) and I_D(max) individually and still be outside SOA when both are high simultaneously.</span></li>
+      <li><b>Avalanche energy (E_AS)</b><span>Matters when the design relies on the body diode/avalanche clamp to survive inductive turn-off spikes rather than an external snubber/TVS.</span></li>
+      <li><b>Body diode Q_rr / t_rr</b><span>Critical in any hard-switched half-bridge/synchronous topology; a slow body diode causes shoot-through-like loss even with correct dead-time.</span></li>
+      <li><b>Thermal resistance R_θJC / R_θJA</b><span>Combine with your loss budget (conduction + switching) to confirm junction temperature stays well below T_j(max) with real-world margin — not right at the limit.</span></li>
+      <li><b>Package &amp; creepage/clearance</b><span>TO-220 vs SOT-23 vs DPAK vs LGA sets both thermal capability and PCB isolation distance for high-voltage designs.</span></li>
+      <li><b>Cost &amp; second-source availability</b><span>Especially relevant for GaN/SiC parts, which still have fewer suppliers than mainstream Si.</span></li>
+    </ul>
+
+    <h3 style="color:var(--copper-bright); font-family:var(--mono); font-size:13px; letter-spacing:1px; margin-top:26px;">BJT SELECTION CHECKLIST</h3>
+    <ul class="checklist">
+      <li><b>V_CEO / V_CBO</b><span>Breakdown ratings, with margin for any inductive-load turn-off spike.</span></li>
+      <li><b>I_C(max), h_FE range</b><span>Design the base drive against the datasheet's <em>minimum</em> h_FE at your target I_C and temperature, never the typical/nominal value.</span></li>
+      <li><b>V_CE(sat) at your I_C</b><span>Sets conduction loss the same way R_DS(on) does for a MOSFET — check it's specified at a base drive ratio (I_C/I_B) you'll actually provide.</span></li>
+      <li><b>f_T (transition frequency)</b><span>Sanity-check against your switching speed requirement; BJTs fall off fast above ~100 kHz due to minority-carrier storage time.</span></li>
+      <li><b>SOA and second breakdown</b><span>BJTs have an extra failure mode (thermal second breakdown) inside their SOA that MOSFETs don't — a real constraint for linear-mode or hot-switching use.</span></li>
+    </ul>
+
+    <h3 style="color:var(--purple); font-family:var(--mono); font-size:13px; letter-spacing:1px; margin-top:26px;">IGBT SELECTION CHECKLIST</h3>
+    <ul class="checklist">
+      <li><b>V_CE(sat) and tail current</b><span>Tail current at turn-off is IGBT-specific loss with no MOSFET equivalent — check E_off in the datasheet at your actual current/voltage/temperature, not just V_CE(sat).</span></li>
+      <li><b>Short-circuit withstand time</b><span>Motor-drive and inverter designs often require a rated µs-level short-circuit survival window for the protection loop to react.</span></li>
+      <li><b>Co-pack diode rating</b><span>Most IGBTs ship with (or need) an ultrafast antiparallel diode for freewheeling — check its Q_rr matches your switching frequency target.</span></li>
+    </ul>
+  </section>
+
+  <!-- ================= CHEATSHEET ================= -->
+  <section id="cheatsheet">
+    <h2 class="sec-title"><span class="tag">11</span>Equation Cheat-Sheet</h2>
+    <p class="sec-sub">Everything above, condensed</p>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>BJT</h3>
+        <div class="eq-block">I_C = β · I_B
+V_BE(on) ≈ 0.6–0.7 V
+V_CE(sat) ≈ 0.2 V</div>
+      </div>
+      <div class="card blue">
+        <h3>MOSFET</h3>
+        <div class="eq-block">I_D = κ(V_GS − V_th)²   [saturation]
+I_D ≈ V_DS / R_DS(on)   [triode/linear]
+I_g = Q_G / t_switch</div>
+      </div>
+      <div class="card red">
+        <h3>Losses</h3>
+        <div class="eq-block">P_cond = I_D² · R_DS(on) · D
+E_on ≈ ½·V_DS·I_D·t_on
+E_off ≈ ½·V_DS·I_D·t_off
+P_total = P_cond + ½V_DS·I_D(t_on+t_off)·f_sw + Q_G·V_GS·f_sw</div>
+      </div>
+      <div class="card amber">
+        <h3>Capacitances</h3>
+        <div class="eq-block">C_iss = C_gs + C_gd
+C_oss = C_ds + C_gd
+C_rss = C_gd  (Miller cap)</div>
+      </div>
+    </div>
+
+    <div class="callout-grid">
+      <div class="stat"><div class="v">10–15 V</div><div class="l">typical full gate drive V_GS</div></div>
+      <div class="stat"><div class="v">0.6–0.7 V</div><div class="l">BJT / body-diode forward knee</div></div>
+      <div class="stat"><div class="v">1.3–1.5×</div><div class="l">voltage derating margin</div></div>
+      <div class="stat"><div class="v">RDS(on)×QG</div><div class="l">MOSFET figure of merit</div></div>
+    </div>
+  </section>
+
+  <div class="footer">BJT &amp; MOSFET Field Reference — compiled engineering notes // for schematic-capture use</div>
+
+</main>
+</div>
+</body>
+</html>
