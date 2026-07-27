@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Power Regulator Design Notes — Linear, Buck & Boost</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1720;
+  --panel:#141e2a;
+  --panel2:#101923;
+  --ink:#e9edf2;
+  --ink-dim:#93a3b5;
+  --rule:#25323f;
+  --grid:#1c2733;
+
+  --linear:#5b9bd5;
+  --linear-soft:#16222f;
+  --switch:#4fb6a4;
+  --switch-soft:#122622;
+  --buck:#7cc576;
+  --buck-soft:#152418;
+  --boost:#e0954a;
+  --boost-soft:#2a1e12;
+  --comp:#b489e0;
+  --comp-soft:#211a2c;
+  --warn:#e0654a;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:15.5px;
+  line-height:1.55;
+}
+h1,h2,h3,h4{
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:600;
+  margin:0 0 .4em 0;
+  letter-spacing:.2px;
+}
+code, .mono, .eq, table{font-family:'IBM Plex Mono',monospace;}
+.eq{
+  background:#0b131b;
+  border:1px solid var(--rule);
+  border-radius:6px;
+  padding:.55em .9em;
+  display:inline-block;
+  font-size:.95em;
+  color:#ffe9b3;
+}
+
+/* ---------- layout shell ---------- */
+.masthead{
+  padding:64px 8vw 40px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(91,155,213,0.10), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(224,149,74,0.08), transparent 40%),
+    var(--bg);
+  border-bottom:1px solid var(--rule);
+}
+.masthead .eyebrow{
+  color:var(--ink-dim);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.8em;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  margin-bottom:14px;
+}
+.masthead h1{
+  font-size:clamp(28px,4vw,46px);
+  max-width:900px;
+  line-height:1.12;
+}
+.masthead p.sub{
+  color:var(--ink-dim);
+  max-width:640px;
+  font-size:1.05em;
+  margin-top:14px;
+}
+.toc{
+  display:flex; flex-wrap:wrap; gap:10px;
+  margin-top:28px;
+}
+.toc a{
+  color:var(--ink);
+  text-decoration:none;
+  border:1px solid var(--rule);
+  padding:7px 14px;
+  border-radius:20px;
+  font-size:.83em;
+  font-family:'IBM Plex Mono',monospace;
+  transition:border-color .15s, background .15s;
+}
+.toc a:hover{border-color:var(--ink-dim); background:#182432;}
+
+main{max-width:1080px; margin:0 auto; padding:0 8vw 80px;}
+
+.section{padding-top:56px;}
+.section-head{
+  display:flex; align-items:baseline; gap:14px;
+  margin-bottom:6px;
+  padding-bottom:14px;
+  border-bottom:2px solid var(--accent);
+}
+.section-head .tag{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.75em;
+  color:var(--accent);
+  border:1px solid var(--accent);
+  padding:3px 9px;
+  border-radius:4px;
+  white-space:nowrap;
+}
+.section-head h2{font-size:clamp(22px,2.6vw,30px); color:var(--ink);}
+.section-tagline{color:var(--ink-dim); font-size:.95em; margin:8px 0 28px;}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--rule);
+  border-radius:10px;
+  padding:20px 22px;
+  margin-bottom:18px;
+}
+.card h3{font-size:1.02em; color:var(--accent); margin-bottom:10px;}
+.card h4{font-size:.92em; color:var(--ink); margin:14px 0 6px;}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+@media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+ul{margin:6px 0; padding-left:20px;}
+li{margin:4px 0;}
+p{margin:8px 0;}
+
+table{width:100%; border-collapse:collapse; font-size:.86em; margin-top:8px;}
+th,td{border:1px solid var(--rule); padding:8px 10px; text-align:left; vertical-align:top;}
+th{background:#0d1620; color:var(--accent); font-weight:600;}
+tr:nth-child(even) td{background:#111b25;}
+
+.callout{
+  border-left:3px solid var(--accent);
+  background:var(--accent-soft);
+  padding:12px 16px;
+  border-radius:0 8px 8px 0;
+  margin:14px 0;
+  font-size:.92em;
+}
+.callout.warn{border-left-color:var(--warn); background:#241412;}
+.callout.warn b{color:var(--warn);}
+
+.divider{
+  margin:40px 0;
+  padding:34px 30px;
+  border-radius:12px;
+  background:linear-gradient(135deg, var(--accent-soft), #0e151d);
+  border:1px solid var(--rule);
+}
+.divider h2{font-size:clamp(20px,3vw,28px); color:var(--accent); margin-bottom:6px;}
+.divider p{color:var(--ink-dim); margin:0;}
+
+.chartbox{background:#0b131b; border:1px solid var(--rule); border-radius:8px; padding:14px;}
+.chartbox .ctitle{font-size:.82em; color:var(--ink-dim); margin-bottom:6px; text-align:center;}
+svg{display:block; width:100%; height:auto;}
+.axis-line{stroke:#3a4856; stroke-width:1;}
+.grid-line{stroke:var(--grid); stroke-width:1;}
+.axis-label{fill:var(--ink-dim); font-size:9px; font-family:'IBM Plex Mono',monospace;}
+.data-pt{fill:var(--accent);}
+.data-line{fill:none; stroke:var(--accent); stroke-width:2.2;}
+.data-line2{fill:none; stroke:#e0654a; stroke-width:2.2;}
+.data-pt2{fill:#e0654a;}
+.pt-label{fill:var(--ink); font-size:9px; font-family:'IBM Plex Mono',monospace;}
+.legend{font-size:9px; fill:var(--ink-dim); font-family:'IBM Plex Mono',monospace;}
+
+.circuit-wrap{background:#0b131b; border:1px solid var(--rule); border-radius:8px; padding:16px;}
+.circuit-wrap svg{width:100%; height:auto;}
+.wire{stroke:#8fa3b8; stroke-width:2; fill:none;}
+.comp-fill-1{fill:#1e2c3a; stroke:var(--accent); stroke-width:1.6;}
+.comp-fill-2{fill:#2a1e12; stroke:var(--boost); stroke-width:1.6;}
+.comp-fill-3{fill:#152418; stroke:var(--buck); stroke-width:1.6;}
+.clabel{fill:var(--ink); font-size:11px; font-family:'IBM Plex Mono',monospace; text-anchor:middle;}
+.cnode{fill:var(--ink-dim);}
+.gnd{stroke:#8fa3b8; stroke-width:2;}
+
+.params-list{font-size:.88em;}
+.params-list li{margin:5px 0;}
+.params-list b{color:var(--ink);}
+
+.footer{
+  border-top:1px solid var(--rule);
+  padding:30px 8vw 60px;
+  color:var(--ink-dim);
+  font-size:.85em;
+  text-align:center;
+}
+
+/* section accent scoping */
+#linear{--accent:var(--linear); --accent-soft:var(--linear-soft);}
+#switching{--accent:var(--switch); --accent-soft:var(--switch-soft);}
+#buck{--accent:var(--buck); --accent-soft:var(--buck-soft);}
+#boost{--accent:var(--boost); --accent-soft:var(--boost-soft);}
+#compare{--accent:var(--comp); --accent-soft:var(--comp-soft);}
+#selection{--accent:#e0c94a; --accent-soft:#241f10;}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="eyebrow">Power Electronics — Design Reference</div>
+  <h1>Linear &amp; Switching Voltage Regulators</h1>
+  <p class="sub">A hardware-engineer's working reference on how linear regulators, buck converters, and boost converters actually operate, why their characteristic graphs look the way they do, how to draw their application circuits correctly, and — critically — which datasheet parameters actually matter when you pick a part for a design.</p>
+  <div class="toc">
+    <a href="#linear">01 · Linear Regulators</a>
+    <a href="#switching">02 · Switching Fundamentals</a>
+    <a href="#buck">03 · Buck Converter</a>
+    <a href="#boost">04 · Boost Converter</a>
+    <a href="#compare">05 · Linear vs Switching</a>
+    <a href="#selection">06 · Component Selection Checklists</a>
+  </div>
+</div>
+
+<main>
+
+<!-- ============================================================ -->
+<!-- SECTION 1 — LINEAR REGULATORS -->
+<!-- ============================================================ -->
+<section class="section" id="linear">
+  <div class="section-head"><span class="tag">01</span><h2>Linear Regulators</h2></div>
+  <p class="section-tagline">A controlled variable resistor in series with the load — it burns the difference between V<sub>IN</sub> and V<sub>OUT</sub> as heat.</p>
+
+  <div class="card">
+    <h3>How it actually works</h3>
+    <p>A linear regulator places a <b>series pass element</b> (a BJT or MOSFET) between the input rail and the output. This transistor behaves like a voltage-controlled resistor: it is never fully on or fully off, it sits in its active/linear region, continuously adjusting its channel resistance so that the drop across it plus V<sub>OUT</sub> always equals V<sub>IN</sub>.</p>
+    <p>An <b>error amplifier</b> is the brain of the loop. It compares a scaled-down copy of V<sub>OUT</sub> (via a resistor divider R1/R2, or an internal trim for fixed parts) against an internal <b>bandgap reference</b> V<sub>REF</sub> (typically 1.2 V or 0.6–1.25 V depending on IC). Any error between the two drives the gate/base of the pass transistor, closing a negative-feedback loop that forces the divider node to sit exactly at V<sub>REF</sub>.</p>
+    <p>Because the divider node is forced to V<sub>REF</sub>, the output voltage is set purely by the resistor ratio:</p>
+    <div class="eq">V<sub>OUT</sub> = V<sub>REF</sub> × (1 + R1/R2)</div>
+    <p style="margin-top:10px">For fixed-voltage parts (78xx, most LDOs) R1/R2 are built in on-chip. For adjustable parts (LM317, AMS1117-ADJ) you set R1/R2 externally to program any output above V<sub>REF</sub>.</p>
+
+    <div class="circuit-wrap" style="margin-top:16px;">
+      <svg viewBox="0 0 760 300">
+        <!-- Vin rail -->
+        <line x1="30" y1="60" x2="200" y2="60" class="wire"/>
+        <text x="20" y="55" class="clabel" text-anchor="start">V_IN</text>
+        <!-- pass transistor box -->
+        <rect x="200" y="35" width="120" height="50" rx="6" class="comp-fill-1"/>
+        <text x="260" y="55" class="clabel">Series Pass</text>
+        <text x="260" y="70" class="clabel">Transistor</text>
+        <!-- Vout rail -->
+        <line x1="320" y1="60" x2="600" y2="60" class="wire"/>
+        <circle cx="600" cy="60" r="3" class="cnode"/>
+        <text x="620" y="55" class="clabel" text-anchor="start">V_OUT</text>
+        <!-- Vout down to divider -->
+        <line x1="600" y1="60" x2="600" y2="110" class="wire"/>
+        <rect x="575" y="110" width="50" height="34" rx="4" class="comp-fill-1"/>
+        <text x="600" y="131" class="clabel" font-size="10">R1</text>
+        <line x1="600" y1="144" x2="600" y2="170" class="wire"/>
+        <circle cx="600" cy="170" r="3" class="cnode"/>
+        <rect x="575" y="170" width="50" height="34" rx="4" class="comp-fill-1"/>
+        <text x="600" y="191" class="clabel" font-size="10">R2</text>
+        <line x1="600" y1="204" x2="600" y2="230" class="wire"/>
+        <line x1="580" y1="230" x2="620" y2="230" class="gnd"/>
+        <line x1="587" y1="236" x2="613" y2="236" class="gnd"/>
+        <line x1="594" y1="242" x2="606" y2="242" class="gnd"/>
+        <!-- feedback node to error amp -->
+        <line x1="600" y1="170" x2="470" y2="170" class="wire"/>
+        <!-- error amp -->
+        <rect x="330" y="150" width="140" height="46" rx="6" class="comp-fill-1"/>
+        <text x="400" y="169" class="clabel">Error</text>
+        <text x="400" y="183" class="clabel">Amplifier</text>
+        <!-- amp output up to transistor gate/base -->
+        <line x1="400" y1="150" x2="400" y2="110" class="wire"/>
+        <line x1="400" y1="110" x2="260" y2="110" class="wire"/>
+        <line x1="260" y1="110" x2="260" y2="85" class="wire"/>
+        <!-- Vref block -->
+        <rect x="200" y="205" width="100" height="42" rx="6" class="comp-fill-1"/>
+        <text x="250" y="223" class="clabel">V_REF</text>
+        <text x="250" y="237" class="clabel" font-size="9">(bandgap)</text>
+        <line x1="300" y1="226" x2="330" y2="226" class="wire"/>
+        <line x1="330" y1="226" x2="330" y2="176" class="wire"/>
+        <!-- caption -->
+        <text x="400" y="278" class="axis-label" text-anchor="middle" font-size="10">Feedback loop: error amp drives the pass transistor so the R1/R2 midpoint always equals V_REF</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Key datasheet parameters</h3>
+      <ul class="params-list">
+        <li><b>Dropout voltage (V<sub>DO</sub>):</b> minimum (V<sub>IN</sub> − V<sub>OUT</sub>) needed to keep the pass transistor in its linear region. Classic 78xx ≈ 2 V; a true LDO ("Low DropOut") is 0.1–0.5 V, achieved by using a PMOS/PNP pass element instead of an NPN follower.</li>
+        <li><b>Quiescent current (I<sub>Q</sub>):</b> current the IC itself consumes (bias + error amp), not delivered to the load. Ranges from single-digit µA (battery-friendly LDOs) to a few mA. Matters a lot in always-on / battery circuits.</li>
+        <li><b>PSRR (Power Supply Rejection Ratio):</b> how well the regulator rejects ripple/noise present on V<sub>IN</sub> from reaching V<sub>OUT</sub>, in dB vs frequency. This is the single biggest reason to choose linear over switching for sensitive analog/RF rails.</li>
+        <li><b>Load regulation:</b> how much V<sub>OUT</sub> sags as I<sub>OUT</sub> increases from no-load to full-load, at constant V<sub>IN</sub>.</li>
+        <li><b>Line regulation:</b> how much V<sub>OUT</sub> shifts as V<sub>IN</sub> changes, at constant I<sub>OUT</sub>.</li>
+        <li><b>Output noise (µV<sub>RMS</sub>):</b> broadband noise from the reference and error amp, important for RF/ADC supplies — often reduced with an external "NR/NC" bypass capacitor.</li>
+        <li><b>Thermal resistance θ<sub>JA</sub>/θ<sub>JC</sub>:</b> since all excess power becomes heat inside the package, this sets your real maximum current at a given ΔV and ambient temperature.</li>
+        <li><b>Stability requirements:</b> many LDOs need a specific output capacitor range and minimum ESR to stay stable — check the datasheet's stable region, not just "any capacitor."</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Where linear regulators belong</h3>
+      <table>
+        <tr><th>Use case</th><th>Why linear wins here</th></tr>
+        <tr><td>Clean analog / RF supplies</td><td>No switching noise at all; high PSRR kills input ripple — ideal for ADCs, PLLs, VCOs, sensitive sensors.</td></tr>
+        <tr><td>Post-regulator after a buck</td><td>Buck gets you close and efficient (e.g. 5→3.6 V), LDO cleans the last stretch to 3.3 V — best of both worlds.</td></tr>
+        <tr><td>Battery / always-on rails</td><td>µA-quiescent LDOs sipping power on standby circuits; small ΔV keeps efficiency acceptable even though it's linear.</td></tr>
+        <tr><td>Simple, cheap supplies</td><td>Three terminals, two capacitors, done — no inductor, no switching-loop layout to fight.</td></tr>
+        <tr><td>Adjustable bench supply</td><td>LM317-style: V<sub>OUT</sub> = 1.25 × (1 + R2/R1), a classic building block.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Efficiency &amp; heat — the two graphs, explained</h3>
+    <div class="grid2">
+      <div class="chartbox">
+        <div class="ctitle">Efficiency (%) vs V_IN — V_OUT = 3.3 V, I_OUT = 1 A</div>
+        <svg id="chart-lin-eff" viewBox="0 0 420 260"></svg>
+      </div>
+      <div class="chartbox">
+        <div class="ctitle">Heat Dissipated (W) vs V_IN — same conditions</div>
+        <svg id="chart-lin-heat" viewBox="0 0 420 260"></svg>
+      </div>
+    </div>
+    <div class="callout">
+      <b>Why the efficiency curve falls the way it does:</b> for a linear regulator, efficiency is simply η = V<sub>OUT</sub>/V<sub>IN</sub> (input power ≈ V<sub>IN</sub>×I<sub>OUT</sub>, output power = V<sub>OUT</sub>×I<sub>OUT</sub>, same current flows through both). That's a pure hyperbola (η ∝ 1/V<sub>IN</sub>) — it falls fast at first and flattens out at high V<sub>IN</sub>, exactly the concave shape in the plot. At 3.6 V in it's 92% efficient (barely any headroom to burn); by 12 V in it's only 28%, because <b>72% of the input power is being thrown away as heat</b> for no benefit.
+    </div>
+    <div class="callout warn">
+      <b>Why the heat curve rises the way it does:</b> P<sub>diss</sub> = (V<sub>IN</sub> − V<sub>OUT</sub>) × I<sub>OUT</sub>. With I<sub>OUT</sub> fixed at 1 A, this is a straight line in (V<sub>IN</sub> − V<sub>OUT</sub>) — which is exactly what the plot shows: linear growth from ~0 W near dropout to 8.7 W at 12 V in. This is the practical design consequence: <b>every extra volt of headroom above what you need costs you a fixed extra watt per amp of load</b>, and that watt has to leave the package through the PCB copper or a heatsink, or the thermal shutdown will trip.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>When NOT to use a linear regulator</h3>
+    <ul>
+      <li>Large (V<sub>IN</sub> − V<sub>OUT</sub>) at high current — the heat budget becomes impossible without a serious heatsink or forced airflow.</li>
+      <li>Step-up is physically impossible — a linear regulator can only ever regulate <i>down</i>; V<sub>OUT</sub> must always be less than V<sub>IN</sub> minus dropout.</li>
+      <li>Battery-life-critical designs with a wide V<sub>IN</sub> range (e.g. Li-ion 4.2 V → 3.3 V logic across full discharge) — efficiency swings and wastes capacity.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTION 2 — SWITCHING FUNDAMENTALS -->
+<!-- ============================================================ -->
+<section class="section" id="switching">
+  <div class="section-head"><span class="tag">02</span><h2>Switching Regulators — PWM Fundamentals</h2></div>
+  <p class="section-tagline">The pass device is switched fully ON or fully OFF, so it dissipates almost nothing itself — energy is stored and released through an inductor instead of being burned.</p>
+
+  <div class="card">
+    <h3>How it works</h3>
+    <p>Instead of a transistor sitting in its lossy linear region, a switching regulator drives it as a hard switch: either fully saturated (≈0 V drop, so P = V×I ≈ 0) or fully open (≈0 A, so again P ≈ 0). Almost no power is dissipated in the switch itself — the only real losses are the small non-idealities (R<sub>DS(on)</sub>, switching transition times, diode drop, inductor DCR, capacitor ESR).</p>
+    <p>Energy delivered to the output is chopped into pulses by the switch, then <b>stored temporarily in an inductor's magnetic field</b> and smoothed by an output capacitor, so the load sees a continuous, roughly-DC voltage even though the switch node itself is a square wave.</p>
+    <p>A <b>PWM controller</b> senses V<sub>OUT</sub> through a feedback path and adjusts the <b>duty cycle</b> D = t<sub>ON</sub>/T (the fraction of each switching period the switch spends ON) to hold the output at the target voltage regardless of load or input changes.</p>
+
+    <div class="circuit-wrap" style="margin-top:16px;">
+      <svg viewBox="0 0 760 220">
+        <line x1="30" y1="60" x2="150" y2="60" class="wire"/>
+        <text x="20" y="55" class="clabel" text-anchor="start">V_IN</text>
+        <rect x="150" y="35" width="110" height="50" rx="6" class="comp-fill-1"/>
+        <text x="205" y="55" class="clabel">Switch</text>
+        <text x="205" y="70" class="clabel">(PWM)</text>
+        <line x1="260" y1="60" x2="330" y2="60" class="wire"/>
+        <rect x="330" y="35" width="110" height="50" rx="6" class="comp-fill-1"/>
+        <text x="385" y="55" class="clabel">L + C</text>
+        <text x="385" y="70" class="clabel">filter</text>
+        <line x1="440" y1="60" x2="620" y2="60" class="wire"/>
+        <text x="640" y="55" class="clabel" text-anchor="start">V_OUT</text>
+        <!-- pwm controller -->
+        <rect x="270" y="120" width="150" height="46" rx="6" class="comp-fill-1"/>
+        <text x="345" y="139" class="clabel">PWM Controller</text>
+        <line x1="345" y1="120" x2="345" y2="95" class="wire"/>
+        <line x1="345" y1="95" x2="205" y2="95" class="wire"/>
+        <line x1="205" y1="95" x2="205" y2="85" class="wire"/>
+        <!-- feedback -->
+        <line x1="420" y1="143" x2="600" y2="143" class="wire"/>
+        <line x1="600" y1="143" x2="600" y2="60" class="wire"/>
+        <text x="470" y="158" class="axis-label" font-size="9">feedback</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Core concepts</h3>
+      <ul class="params-list">
+        <li><b>Duty cycle D = t<sub>ON</sub>/T</b> is the primary control variable — it directly sets the DC output level.</li>
+        <li><b>Switching frequency</b> typically ranges 100 kHz to 2 MHz+. Higher frequency → smaller L and C (smaller solution size) but higher switching losses.</li>
+        <li><b>Topologies:</b> buck (step-down), boost (step-up), buck-boost/SEPIC (either direction), flyback (isolated, for mains-referenced designs).</li>
+        <li>An ideal switch + ideal L and C would lose nothing; real converters still reach <b>85–95%+ efficiency</b> because the loss mechanisms are proportional to I²R and switching transition energy, not to the full ΔV like a linear regulator.</li>
+        <li><b>Trade-offs versus linear:</b> switching noise and EMI at the switching frequency and its harmonics, output ripple, more external parts, and a layout where loop area and ground routing are critical, not optional.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>The two characteristic graphs</h3>
+      <div class="chartbox">
+        <div class="ctitle">Efficiency (%) vs Load Current (A)</div>
+        <svg id="chart-sw-eff" viewBox="0 0 420 230"></svg>
+      </div>
+      <div class="callout" style="margin-top:10px;">
+        <b>Why it dips at light load and droops at high load:</b> at very low load current, <i>fixed</i> switching losses (gate drive charge × frequency, controller quiescent current) dominate a small output power, so efficiency collapses. As load rises, output power grows faster than these fixed losses, so efficiency climbs — the curve is essentially flat and high (90%+) across the middle of the range. At high current, I²R conduction losses (switch R<sub>DS(on)</sub>, inductor DCR, trace resistance) start to dominate again and efficiency droops slightly. The result is the characteristic <b>rounded peak / plateau shape</b>, very different from the linear regulator's monotonic hyperbola.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>PWM output relationship (Buck, ideal, continuous conduction)</h3>
+    <div class="chartbox">
+      <div class="ctitle">Buck Average Output (V) vs Duty Cycle (%) — V_IN = 12 V</div>
+      <svg id="chart-sw-duty" viewBox="0 0 480 240"></svg>
+    </div>
+    <div class="callout" style="margin-top:10px;">
+      The switch node toggles between V<sub>IN</sub> and 0 V; the LC filter simply averages that square wave. The time-average of a square wave switching between 0 and V<sub>IN</sub> with duty cycle D is exactly D × V<sub>IN</sub> — a straight line through the origin with slope V<sub>IN</sub>, which is exactly what the plot shows. This is why buck-derived control is so linear and predictable: <b>V<sub>OUT</sub> = D × V<sub>IN</sub></b>, no exponentials, no surprises (that changes for boost — see Section 4).
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTION 3 — BUCK CONVERTER -->
+<!-- ============================================================ -->
+<section class="section" id="buck">
+  <div class="section-head"><span class="tag">03</span><h2>Buck Converter</h2></div>
+  <p class="section-tagline">Step-down switching — V<sub>OUT</sub> = D × V<sub>IN</sub></p>
+
+  <div class="card">
+    <h3>Switching cycle, phase by phase</h3>
+    <div class="grid2">
+      <div>
+        <h4>Switch ON (energizing)</h4>
+        <p>The high-side switch closes, connecting V<sub>IN</sub> to the switch node. The full (V<sub>IN</sub> − V<sub>OUT</sub>) appears across the inductor, so inductor current ramps <i>up</i> (dI/dt = V<sub>L</sub>/L). Energy is being pushed into both the inductor's field and the load simultaneously.</p>
+      </div>
+      <div>
+        <h4>Switch OFF (freewheeling)</h4>
+        <p>The high-side switch opens. Inductor current cannot change instantly, so it continues flowing in the same direction, now pulled from ground through a diode (async) or a low-side FET (sync) — this is the "freewheeling" path. The inductor voltage flips sign, now equal to −V<sub>OUT</sub>, so current ramps back <i>down</i> until the next cycle.</p>
+      </div>
+    </div>
+    <div class="eq" style="margin-top:10px;">Steady state (CCM): V<sub>OUT</sub> = D × V<sub>IN</sub> &nbsp;&nbsp;|&nbsp;&nbsp; D = V<sub>OUT</sub>/V<sub>IN</sub></div>
+
+    <div class="circuit-wrap" style="margin-top:16px;">
+      <svg viewBox="0 0 760 260">
+        <text x="20" y="45" class="clabel" text-anchor="start">V_IN</text>
+        <line x1="30" y1="50" x2="150" y2="50" class="wire"/>
+        <!-- high side switch -->
+        <rect x="150" y="30" width="70" height="40" rx="6" class="comp-fill-1"/>
+        <text x="185" y="46" class="clabel" font-size="10">SW</text>
+        <text x="185" y="59" class="clabel" font-size="10">(Q1)</text>
+        <line x1="185" y1="70" x2="185" y2="120" class="wire"/>
+        <circle cx="185" cy="120" r="3" class="cnode"/>
+        <!-- inductor -->
+        <line x1="185" y1="120" x2="260" y2="120" class="wire"/>
+        <rect x="260" y="100" width="90" height="40" rx="18" class="comp-fill-3"/>
+        <text x="305" y="124" class="clabel" font-size="11">L</text>
+        <line x1="350" y1="120" x2="600" y2="120" class="wire"/>
+        <text x="620" y="115" class="clabel" text-anchor="start">V_OUT</text>
+        <!-- diode/sync fet down from switch node -->
+        <line x1="185" y1="120" x2="185" y2="160" class="wire"/>
+        <rect x="150" y="160" width="70" height="40" rx="6" class="comp-fill-1"/>
+        <text x="185" y="176" class="clabel" font-size="10">Diode D</text>
+        <text x="185" y="189" class="clabel" font-size="9">(or sync FET)</text>
+        <line x1="185" y1="200" x2="185" y2="225" class="wire"/>
+        <line x1="165" y1="225" x2="205" y2="225" class="gnd"/>
+        <line x1="172" y1="231" x2="198" y2="231" class="gnd"/>
+        <line x1="179" y1="237" x2="191" y2="237" class="gnd"/>
+        <!-- cout -->
+        <line x1="450" y1="120" x2="450" y2="160" class="wire"/>
+        <rect x="425" y="160" width="50" height="34" rx="4" class="comp-fill-1"/>
+        <text x="450" y="181" class="clabel" font-size="10">C_out</text>
+        <line x1="450" y1="194" x2="450" y2="225" class="wire"/>
+        <line x1="430" y1="225" x2="470" y2="225" class="gnd"/>
+        <line x1="437" y1="231" x2="463" y2="231" class="gnd"/>
+        <line x1="444" y1="237" x2="456" y2="237" class="gnd"/>
+        <!-- load -->
+        <line x1="600" y1="120" x2="600" y2="160" class="wire"/>
+        <rect x="575" y="160" width="50" height="34" rx="4" class="comp-fill-1"/>
+        <text x="600" y="181" class="clabel" font-size="10">Load</text>
+        <line x1="600" y1="194" x2="600" y2="225" class="wire"/>
+        <line x1="580" y1="225" x2="620" y2="225" class="gnd"/>
+        <line x1="587" y1="231" x2="613" y2="231" class="gnd"/>
+        <line x1="594" y1="237" x2="606" y2="237" class="gnd"/>
+        <text x="380" y="255" class="axis-label" text-anchor="middle" font-size="10">Switch → switch-node → inductor → V_OUT ; freewheel path returns to ground through D (or low-side FET)</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Synchronous vs Asynchronous — why the efficiency gap</h3>
+    <div class="chartbox">
+      <div class="ctitle">Efficiency (%) vs Load Current (A) — 12 V → 3.3 V example</div>
+      <svg id="chart-buck-sync" viewBox="0 0 460 260"></svg>
+    </div>
+    <div class="grid2" style="margin-top:12px;">
+      <div class="callout">
+        <b>Why synchronous wins:</b> in the async design the freewheeling diode has a roughly fixed forward drop (~0.4 V for a good Schottky) regardless of current. On a 3.3 V rail that's ~12% of the output lost to the diode alone during every freewheel phase. Replacing the diode with a low-side MOSFET (sync rectification) drops that to I×R<sub>DS(on)</sub>, which can be a few mV — and shrinks further as you choose a lower R<sub>DS(on)</sub> FET.
+      </div>
+      <div class="callout">
+        <b>When async is still fine:</b> at higher output voltages (12 V+) the fixed diode drop is a small fraction of V<sub>OUT</sub>, so the efficiency penalty shrinks. It's also the simpler, cheaper choice for cost-sensitive, low-current designs, and it has no light-load reverse-current issue the way sync converters can (current can flow backward through a low-side FET at very light load unless the controller adds diode-emulation mode).
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTION 4 — BOOST CONVERTER -->
+<!-- ============================================================ -->
+<section class="section" id="boost">
+  <div class="section-head"><span class="tag">04</span><h2>Boost Converter</h2></div>
+  <p class="section-tagline">Step-up switching — V<sub>OUT</sub> = V<sub>IN</sub> / (1 − D)</p>
+
+  <div class="card">
+    <h3>Switching cycle, phase by phase</h3>
+    <div class="grid2">
+      <div>
+        <h4>Switch ON (charging L)</h4>
+        <p>The low-side switch closes to ground. The full V<sub>IN</sub> now appears directly across the inductor, so its current ramps up, storing energy in the magnetic field. The diode is reverse-biased during this phase (V<sub>OUT</sub> > the switch-node voltage), so it blocks — <b>the output capacitor alone supplies the load</b> during this time.</p>
+      </div>
+      <div>
+        <h4>Switch OFF (boosting)</h4>
+        <p>The switch opens. Inductor current must keep flowing, so its voltage <i>flips polarity</i> and adds on top of V<sub>IN</sub>. This combined voltage (V<sub>IN</sub> + V<sub>L</sub>) forward-biases the diode and pushes current into C<sub>OUT</sub> and the load, so V<sub>OUT</sub> ends up higher than V<sub>IN</sub>.</p>
+      </div>
+    </div>
+    <div class="eq" style="margin-top:10px;">Steady state (CCM): V<sub>OUT</sub> = V<sub>IN</sub> / (1 − D)</div>
+
+    <div class="circuit-wrap" style="margin-top:16px;">
+      <svg viewBox="0 0 760 260">
+        <text x="20" y="115" class="clabel" text-anchor="start">V_IN</text>
+        <line x1="30" y1="120" x2="150" y2="120" class="wire"/>
+        <!-- inductor -->
+        <rect x="150" y="100" width="90" height="40" rx="18" class="comp-fill-3"/>
+        <text x="195" y="124" class="clabel" font-size="11">L</text>
+        <line x1="240" y1="120" x2="290" y2="120" class="wire"/>
+        <circle cx="290" cy="120" r="3" class="cnode"/>
+        <!-- diode to output -->
+        <line x1="290" y1="120" x2="360" y2="120" class="wire"/>
+        <rect x="360" y="100" width="80" height="40" rx="6" class="comp-fill-2"/>
+        <text x="400" y="124" class="clabel" font-size="10">Diode D</text>
+        <line x1="440" y1="120" x2="600" y2="120" class="wire"/>
+        <text x="620" y="115" class="clabel" text-anchor="start">V_OUT</text>
+        <!-- switch to ground from node -->
+        <line x1="290" y1="120" x2="290" y2="160" class="wire"/>
+        <rect x="255" y="160" width="70" height="40" rx="6" class="comp-fill-2"/>
+        <text x="290" y="176" class="clabel" font-size="10">SW (Q1)</text>
+        <line x1="290" y1="200" x2="290" y2="225" class="wire"/>
+        <line x1="270" y1="225" x2="310" y2="225" class="gnd"/>
+        <line x1="277" y1="231" x2="303" y2="231" class="gnd"/>
+        <line x1="284" y1="237" x2="296" y2="237" class="gnd"/>
+        <!-- cout -->
+        <line x1="500" y1="120" x2="500" y2="160" class="wire"/>
+        <rect x="475" y="160" width="50" height="34" rx="4" class="comp-fill-2"/>
+        <text x="500" y="181" class="clabel" font-size="10">C_out</text>
+        <line x1="500" y1="194" x2="500" y2="225" class="wire"/>
+        <line x1="480" y1="225" x2="520" y2="225" class="gnd"/>
+        <line x1="487" y1="231" x2="513" y2="231" class="gnd"/>
+        <line x1="494" y1="237" x2="506" y2="237" class="gnd"/>
+        <!-- load -->
+        <line x1="600" y1="120" x2="600" y2="160" class="wire"/>
+        <rect x="575" y="160" width="50" height="34" rx="4" class="comp-fill-2"/>
+        <text x="600" y="181" class="clabel" font-size="10">Load</text>
+        <line x1="600" y1="194" x2="600" y2="225" class="wire"/>
+        <line x1="580" y1="225" x2="620" y2="225" class="gnd"/>
+        <line x1="587" y1="231" x2="613" y2="231" class="gnd"/>
+        <line x1="594" y1="237" x2="606" y2="237" class="gnd"/>
+        <text x="380" y="255" class="axis-label" text-anchor="middle" font-size="10">Inductor first, switch to ground, diode to output — same three parts as the buck, rearranged</text>
+      </svg>
+    </div>
+    <div class="callout warn">
+      <b>No switch in the input path:</b> notice there is no series switch between V<sub>IN</sub> and the output — a shorted output is fed directly from V<sub>IN</sub> through L and D with nothing to interrupt it. Always add input/output fusing or current limiting; the topology itself provides none.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Output voltage vs duty cycle — why it explodes near D = 1</h3>
+    <div class="chartbox">
+      <div class="ctitle">Output Voltage (V) vs Duty Cycle (%) — V_IN = 5 V</div>
+      <svg id="chart-boost-duty" viewBox="0 0 480 260"></svg>
+    </div>
+    <div class="callout" style="margin-top:10px;">
+      V<sub>OUT</sub> = V<sub>IN</sub>/(1−D) is a rectangular-hyperbola with a vertical asymptote at D = 1: as D approaches 1, (1−D) approaches 0 and the theoretical gain goes to infinity. In practice you never get there — parasitic resistances (switch R<sub>DS(on)</sub>, inductor DCR, diode drop) eat an increasing share of the transferred energy as D climbs, so real designs plateau and then <i>fall</i> beyond roughly D ≈ 0.85. That's why the curve in the plot bends upward increasingly steeply rather than actually blowing up — the practical, loss-limited region is D up to about 0.7–0.85 depending on the design.
+    </div>
+    <div class="grid2" style="margin-top:12px;">
+      <div class="card" style="margin:0;">
+        <h4>Typical applications</h4>
+        <ul>
+          <li>Single Li-ion cell (3.7 V) → 5 V USB or 12 V rail</li>
+          <li>LED backlight and LED-string drivers</li>
+          <li>PFC front-end stage in mains-referenced supplies</li>
+          <li>Energy harvesting from millivolt-level input sources</li>
+        </ul>
+      </div>
+      <div class="card" style="margin:0;">
+        <h4>Design cautions</h4>
+        <ul>
+          <li>Input current exceeds output current: I<sub>IN</sub> = I<sub>OUT</sub>/(1−D) — size input traces/inductor accordingly.</li>
+          <li>The diode and switch both see the <i>full</i> V<sub>OUT</sub> — rate them for it plus margin.</li>
+          <li>A right-half-plane (RHP) zero in the control-to-output transfer function limits achievable loop bandwidth — boost loops are inherently slower/harder to compensate than buck.</li>
+          <li>Cannot regulate V<sub>OUT</sub> below V<sub>IN</sub> − V<sub>F</sub> (diode always provides a DC path from input to output).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTION 5 — LINEAR VS SWITCHING -->
+<!-- ============================================================ -->
+<section class="section" id="compare">
+  <div class="section-head"><span class="tag">05</span><h2>Linear vs Switching — Choosing the Right Regulator</h2></div>
+  <p class="section-tagline">Every property trades off against the others; the right choice is set by the specific constraint that matters most in your design.</p>
+
+  <div class="card">
+    <table>
+      <tr><th>Property</th><th>Linear Regulator</th><th>Switching Regulator</th></tr>
+      <tr><td>Efficiency</td><td>η = V<sub>OUT</sub>/V<sub>IN</sub> — 30–90%, often poor</td><td>85–95%+ nearly always</td></tr>
+      <tr><td>Heat</td><td>P = (V<sub>IN</sub>−V<sub>OUT</sub>)·I — can be large</td><td>Small, often no heatsink needed</td></tr>
+      <tr><td>Noise / ripple</td><td>Essentially none, high PSRR</td><td>Switching ripple + EMI at f<sub>SW</sub> and harmonics</td></tr>
+      <tr><td>Step up?</td><td>Never — down only</td><td>Buck, boost, invert — all possible</td></tr>
+      <tr><td>Parts count</td><td>IC + 2 capacitors</td><td>IC + inductor + capacitor(s) + diode/FET</td></tr>
+      <tr><td>Size at power</td><td>Big heatsink needed at high power</td><td>Stays compact even at high power</td></tr>
+      <tr><td>Cost</td><td>Very low</td><td>Higher (inductor, more complex IC)</td></tr>
+      <tr><td>PCB layout</td><td>Forgiving</td><td>Critical — switch-node loop area, ground routing</td></tr>
+      <tr><td>Transient response</td><td>Fast, simple single-pole loop</td><td>Slower, needs loop compensation</td></tr>
+      <tr><td>Best for</td><td>Clean analog, small ΔV, low power</td><td>Efficiency-critical, battery, high power</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>The decisive graph</h3>
+    <div class="chartbox">
+      <div class="ctitle">Efficiency (%) vs V_IN — delivering 3.3 V at 1 A</div>
+      <svg id="chart-compare" viewBox="0 0 520 260"></svg>
+    </div>
+    <div class="callout" style="margin-top:10px;">
+      The buck stays flat near 90%+ across the whole input range because its losses scale with the small non-idealities of the switch and inductor, not with ΔV. The linear regulator's efficiency collapses linearly toward zero as V<sub>IN</sub> rises, because it is bound to η = V<sub>OUT</sub>/V<sub>IN</sub> — the wider the gap, the more of the input power is simply thrown away as heat. This single plot is the entire argument for switching regulators in any design with a meaningfully wide V<sub>IN</sub>–V<sub>OUT</sub> gap.
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Choose LINEAR when…</h3>
+      <ul>
+        <li>Noise matters (analog front-ends, RF, ADC references)</li>
+        <li>V<sub>IN</sub> − V<sub>OUT</sub> is small (LDO territory)</li>
+        <li>Current is low (well under a few hundred mA)</li>
+        <li>Simplicity or cost is the dominant constraint</li>
+        <li>Used as a post-regulator right after a buck stage</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Choose SWITCHING when…</h3>
+      <ul>
+        <li>Efficiency matters (battery-powered systems)</li>
+        <li>Large V<sub>IN</sub> − V<sub>OUT</sub> gap</li>
+        <li>High current, where the heat budget would be impossible linearly</li>
+        <li>You must step voltage up, or invert its polarity</li>
+        <li>Space and thermal margin at the board level are tight</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Key takeaways</h3>
+    <ul>
+      <li><b>Linear:</b> the pass transistor burns (V<sub>IN</sub>−V<sub>OUT</sub>)·I as heat. Quiet and simple; efficiency = V<sub>OUT</sub>/V<sub>IN</sub>. LDO just means low dropout.</li>
+      <li><b>Switching:</b> switch fully ON/OFF + inductor/capacitor energy storage → 85–95% efficiency. Costs you ripple, EMI, and layout discipline.</li>
+      <li><b>Buck:</b> step-down, V<sub>OUT</sub> = D·V<sub>IN</sub>. A synchronous buck swaps the diode for a FET — roughly 10× lower freewheel-path loss.</li>
+      <li><b>Boost:</b> step-up, V<sub>OUT</sub> = V<sub>IN</sub>/(1−D). The inductor's flyback voltage adds onto V<sub>IN</sub>. No inherent output-short protection — fuse it.</li>
+      <li><b>Choosing:</b> big ΔV or high current → go switching. Noise-critical or a tiny ΔV → go linear. Many real designs combine both: buck stage followed by an LDO post-regulator.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTION 6 — SELECTION CHECKLISTS -->
+<!-- ============================================================ -->
+<section class="section" id="selection">
+  <div class="section-head"><span class="tag">06</span><h2>Component Selection — What To Check Before You Pick a Part</h2></div>
+  <p class="section-tagline">Datasheet parameters that actually drive a working design, organized by what you're selecting.</p>
+
+  <div class="card">
+    <h3>Choosing the regulator IC (linear or switching)</h3>
+    <div class="grid2">
+      <div>
+        <h4>Electrical fit</h4>
+        <ul class="params-list">
+          <li><b>V<sub>IN</sub> range:</b> must cover your worst-case min and max input, including transients (e.g. cold-crank, load dump in automotive).</li>
+          <li><b>V<sub>OUT</sub> — fixed or adjustable</b>, and its tolerance/accuracy over line, load and temperature.</li>
+          <li><b>I<sub>OUT(max)</sub></b> with margin — don't run a part at its absolute datasheet limit continuously.</li>
+          <li><b>Dropout (linear) or minimum V<sub>IN</sub>−V<sub>OUT</sub> headroom (switching)</b> at your worst-case battery-discharge or brown-out condition.</li>
+          <li><b>Efficiency curve</b> at your actual operating current — check the datasheet plot at your load point, not just the headline peak number.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>System-level fit</h4>
+        <ul class="params-list">
+          <li><b>Protection features:</b> over-current, over-temperature, UVLO (under-voltage lockout), and — for boost — whether it has any output overvoltage/short protection at all.</li>
+          <li><b>Soft-start:</b> controlled ramp-up limits inrush current into downstream capacitance; check if built-in or needs external components.</li>
+          <li><b>Switching frequency (switchers):</b> higher f<sub>SW</sub> shrinks L/C but raises switching loss and EMI; check against any EMI-sensitive bands you must avoid (AM radio, GPS).</li>
+          <li><b>Package &amp; thermal resistance (θ<sub>JA</sub>):</b> determines your real continuous current rating on your actual PCB, not the datasheet's idealized test board.</li>
+          <li><b>Stability requirements:</b> LDOs may need a specific C<sub>OUT</sub> ESR range; switchers need loop compensation appropriate to your L/C selection — check the recommended external component table.</li>
+          <li><b>Cost and second-source availability</b> for production designs.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Selecting the inductor (buck/boost)</h3>
+      <ul class="params-list">
+        <li><b>Inductance value (L):</b> sets ripple current — typically chosen so ripple is 20–40% of I<sub>OUT</sub>; too small = high ripple and core/EMI issues, too large = poor transient response and bigger physical size.</li>
+        <li><b>Saturation current (I<sub>SAT</sub>):</b> must exceed your peak inductor current (I<sub>OUT</sub> + half the ripple, plus margin for transients/short-circuit) — saturating the core collapses inductance and can destroy the switch.</li>
+        <li><b>RMS/thermal current rating:</b> where the winding itself heats up from I²R — check this is above your continuous operating current, separate from I<sub>SAT</sub>.</li>
+        <li><b>DC resistance (DCR):</b> directly sets conduction loss (I²×DCR) — lower is more efficient but usually means a physically larger part.</li>
+        <li><b>Core material / shielding:</b> shielded inductors reduce radiated EMI, important near sensitive analog circuitry.</li>
+        <li><b>Self-resonant frequency:</b> should sit well above your switching frequency and its relevant harmonics.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Selecting the diode / synchronous FET</h3>
+      <ul class="params-list">
+        <li><b>Forward voltage V<sub>F</sub> (diode):</b> directly subtracts from efficiency, worse at low V<sub>OUT</sub> — prefer Schottky (~0.3–0.5 V) over standard silicon (~0.7 V).</li>
+        <li><b>Reverse voltage rating:</b> must exceed the highest voltage it will block (V<sub>IN</sub> for buck freewheel diode, V<sub>OUT</sub> for boost diode) with margin for ringing.</li>
+        <li><b>Reverse recovery time (t<sub>RR</sub>):</b> matters at higher switching frequencies — slow recovery diodes create shoot-through-like losses and spikes.</li>
+        <li><b>Synchronous FET R<sub>DS(on)</sub>:</b> sets conduction loss directly (I²×R<sub>DS(on)</sub>) — the main lever for pushing efficiency above what a diode-based design can reach.</li>
+        <li><b>Gate charge (Q<sub>G</sub>):</b> for FETs, higher Q<sub>G</sub> costs more drive/switching loss at high frequency — a classic R<sub>DS(on)</sub> vs Q<sub>G</sub> trade-off.</li>
+        <li><b>Body-diode characteristics of the sync FET</b> still matter — it conducts briefly during the dead-time between switch transitions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Selecting input/output capacitors</h3>
+      <ul class="params-list">
+        <li><b>Capacitance value:</b> input cap supplies the pulsed switch current locally; output cap smooths ripple and supports load transients — both sized from the controller's recommended range.</li>
+        <li><b>Voltage rating:</b> keep meaningful margin above the maximum DC voltage seen (ceramics also lose real capacitance as DC bias approaches the rating — derate accordingly).</li>
+        <li><b>ESR (Equivalent Series Resistance):</b> directly sets output ripple voltage (ΔV ≈ ΔI×ESR at the switching edges) and can also set/break loop stability on some LDOs — check the datasheet's required range.</li>
+        <li><b>Ripple current rating:</b> especially critical on the input capacitor of a buck (sees the full pulsed switch current) — an undersized cap here overheats and fails early.</li>
+        <li><b>Dielectric type:</b> X5R/X7R ceramics for low ESR and small size; electrolytic/polymer where higher capacitance or higher ripple-current handling is needed.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Feedback network &amp; layout</h3>
+      <ul class="params-list">
+        <li><b>Resistor tolerance</b> (R1/R2 divider): directly sets output voltage accuracy — 1% resistors are the practical default for anything precision-sensitive.</li>
+        <li><b>Feedback trace routing:</b> keep the feedback sense line away from the noisy switch node; on switchers, sense as close to the load as practical (remote/Kelvin sensing) for accurate load regulation.</li>
+        <li><b>Switch-node loop area:</b> minimize the physical loop between switch, inductor, and input/output capacitors — this is the #1 EMI lever in a switching design.</li>
+        <li><b>Ground plane/star grounding:</b> separate noisy power-stage return current from sensitive analog/feedback returns.</li>
+        <li><b>Thermal vias / copper pour:</b> for both linear (heat) and switching (FET/diode conduction loss) designs, adequate copper area is what turns a datasheet current rating into a real one.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="footer">Compiled reference notes — power regulator fundamentals for circuit design. Verify exact numeric parameters against the specific IC's datasheet before finalizing a design.</div>
+
+<script>
+// ---------- lightweight SVG line-chart renderer ----------
+function drawChart(svgId, opts){
+  const svg = document.getElementById(svgId);
+  const ns = "http://www.w3.org/2000/svg";
+  const W = opts.w || 420, H = opts.h || 260;
+  const padL = opts.padL || 40, padR = opts.padR || 16, padT = opts.padT || 14, padB = opts.padB || 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const xs = opts.series[0].data.map(d=>d.x);
+  const xMin = opts.xMin !== undefined ? opts.xMin : Math.min(...xs);
+  const xMax = opts.xMax !== undefined ? opts.xMax : Math.max(...xs);
+  const yMin = opts.yMin !== undefined ? opts.yMin : 0;
+  const yMax = opts.yMax !== undefined ? opts.yMax : Math.max(...opts.series.flatMap(s=>s.data.map(d=>d.y)));
+
+  function sx(x){
+    if(opts.logX){
+      const lx = Math.log10(Math.max(x,1e-9)), l0=Math.log10(xMin), l1=Math.log10(xMax);
+      return padL + (lx-l0)/(l1-l0) * plotW;
+    }
+    return padL + (x-xMin)/(xMax-xMin) * plotW;
+  }
+  function sy(y){ return padT + plotH - (y-yMin)/(yMax-yMin) * plotH; }
+
+  function el(tag, attrs){
+    const e = document.createElementNS(ns, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // gridlines
+  const yTicks = opts.yTicks || 5;
+  for(let i=0;i<=yTicks;i++){
+    const yv = yMin + (yMax-yMin)*i/yTicks;
+    const yy = sy(yv);
+    svg.appendChild(el('line',{x1:padL,y1:yy,x2:W-padR,y2:yy,class:'grid-line'}));
+    svg.appendChild(el('text',{x:padL-6,y:yy+3,class:'axis-label','text-anchor':'end'})).textContent = Math.round(yv*100)/100;
+  }
+  (opts.xTickVals || xs).forEach(xv=>{
+    const xx = sx(xv);
+    svg.appendChild(el('line',{x1:xx,y1:padT,x2:xx,y2:H-padB,class:'grid-line'}));
+    svg.appendChild(el('text',{x:xx,y:H-padB+14,class:'axis-label','text-anchor':'middle'})).textContent = xv;
+  });
+
+  // axes
+  svg.appendChild(el('line',{x1:padL,y1:padT,x2:padL,y2:H-padB,class:'axis-line'}));
+  svg.appendChild(el('line',{x1:padL,y1:H-padB,x2:W-padR,y2:H-padB,class:'axis-line'}));
+
+  const colors = [getComputedStyle(document.documentElement).getPropertyValue('--linear').trim(), '#e0654a'];
+
+  opts.series.forEach((s, si)=>{
+    const pts = s.data.map(d=>`${sx(d.x)},${sy(d.y)}`).join(' ');
+    svg.appendChild(el('polyline',{points:pts, style:`fill:none;stroke:${s.color||colors[si]};stroke-width:2.2`}));
+    s.data.forEach(d=>{
+      svg.appendChild(el('circle',{cx:sx(d.x),cy:sy(d.y),r:3.2, style:`fill:${s.color||colors[si]}`}));
+      if(opts.showLabels!==false){
+        svg.appendChild(el('text',{x:sx(d.x), y:sy(d.y)-8, class:'pt-label','text-anchor':'middle'})).textContent = d.y;
+      }
+    });
+  });
+
+  if(opts.legend){
+    opts.legend.forEach((lg,i)=>{
+      const ly = padT + i*14;
+      svg.appendChild(el('line',{x1:W-padR-70,y1:ly,x2:W-padR-52,y2:ly, style:`stroke:${lg.color};stroke-width:3`}));
+      svg.appendChild(el('text',{x:W-padR-48,y:ly+3, class:'legend'})).textContent = lg.label;
+    });
+  }
+
+  if(opts.xLabel){
+    svg.appendChild(el('text',{x:padL+plotW/2, y:H-4, class:'axis-label','text-anchor':'middle'})).textContent = opts.xLabel;
+  }
+}
+
+// Linear regulator — efficiency vs Vin
+drawChart('chart-lin-eff', {
+  series:[{data:[{x:3.6,y:92},{x:4,y:83},{x:5,y:66},{x:6,y:55},{x:8,y:41},{x:10,y:33},{x:12,y:28}]}],
+  xMin:3.6, xMax:12, yMin:0, yMax:100, xTickVals:[3.6,4,5,6,8,10,12]
+});
+// Linear regulator — heat vs Vin
+drawChart('chart-lin-heat', {
+  series:[{data:[{x:3.6,y:0},{x:4,y:1},{x:5,y:2},{x:6,y:3},{x:8,y:5},{x:10,y:7},{x:12,y:9}], color:'#e0654a'}],
+  xMin:3.6, xMax:12, yMin:0, yMax:10, xTickVals:[3.6,4,5,6,8,10,12]
+});
+// Switching — efficiency vs load current (log-ish x)
+drawChart('chart-sw-eff', {
+  series:[{data:[{x:0.01,y:65},{x:0.05,y:82},{x:0.1,y:88},{x:0.5,y:93},{x:1,y:94},{x:2,y:93},{x:3,y:91}], color:'#4fb6a4'}],
+  logX:true, xMin:0.01, xMax:3, yMin:0, yMax:100, xTickVals:[0.01,0.05,0.1,0.5,1,2,3]
+});
+// Buck duty cycle line
+drawChart('chart-sw-duty', {
+  w:480,h:240,
+  series:[{data:[{x:10,y:1.2},{x:20,y:2.4},{x:30,y:3.6},{x:40,y:4.8},{x:50,y:6.0},{x:60,y:7.2},{x:70,y:8.4},{x:80,y:9.6},{x:90,y:10.8}], color:'#b489e0'}],
+  xMin:10, xMax:90, yMin:0, yMax:12, xTickVals:[10,20,30,40,50,60,70,80,90], showLabels:false
+});
+// Sync vs async buck efficiency
+drawChart('chart-buck-sync', {
+  w:460,h:260,
+  series:[
+    {data:[{x:0.1,y:85},{x:0.5,y:91},{x:1,y:93},{x:2,y:92},{x:3,y:91},{x:5,y:89}], color:'#7cc576'},
+    {data:[{x:0.1,y:78},{x:0.5,y:85},{x:1,y:87},{x:2,y:85},{x:3,y:84},{x:5,y:80}], color:'#e0954a'}
+  ],
+  logX:true, xMin:0.1, xMax:5, yMin:70, yMax:95, xTickVals:[0.1,0.5,1,2,3,5],
+  legend:[{color:'#7cc576',label:'Synchronous'},{color:'#e0954a',label:'Asynchronous'}]
+});
+// Boost duty cycle
+drawChart('chart-boost-duty', {
+  w:480,h:260,
+  series:[{data:[{x:0,y:5},{x:20,y:6},{x:40,y:8},{x:50,y:10},{x:60,y:13},{x:70,y:17},{x:80,y:25},{x:90,y:50}], color:'#e0954a'}],
+  xMin:0, xMax:90, yMin:0, yMax:60, xTickVals:[0,20,40,50,60,70,80,90]
+});
+// Linear vs Buck comparison
+drawChart('chart-compare', {
+  w:520,h:260,
+  series:[
+    {data:[{x:3.6,y:92},{x:4,y:92},{x:5,y:91},{x:6,y:90},{x:8,y:90},{x:10,y:89},{x:12,y:88}], color:'#7cc576'},
+    {data:[{x:3.6,y:92},{x:4,y:83},{x:5,y:66},{x:6,y:55},{x:8,y:41},{x:10,y:33},{x:12,y:28}], color:'#5b9bd5'}
+  ],
+  xMin:3.6, xMax:12, yMin:0, yMax:100, xTickVals:[3.6,4,5,6,8,10,12], showLabels:false,
+  legend:[{color:'#7cc576',label:'Buck (switching)'},{color:'#5b9bd5',label:'Linear'}]
+});
+</script>
+
+</body>
+</html>
