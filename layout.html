@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KSZ8895MLUB — PCB &amp; Layout Deep Dive</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap');
+
+  :root{
+    --board:#0b241a;
+    --board-2:#0f2e21;
+    --panel:#123527;
+    --panel-line:#1e4c37;
+    --copper:#c9884f;
+    --copper-bright:#e3a869;
+    --silver:#cfd8d2;
+    --text:#e9efe9;
+    --muted:#8fac9c;
+    --muted-2:#6b8a79;
+    --solder:#dcd0a8;
+    --sig:#7fb8a3;
+    --gnd:#5c8fae;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+    --cond:'IBM Plex Sans Condensed', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 12% 6%, rgba(201,136,79,0.05), transparent 40%),
+      radial-gradient(circle at 88% 92%, rgba(30,76,55,0.35), transparent 45%),
+      var(--board);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .grid-overlay{
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      linear-gradient(rgba(207,216,210,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(207,216,210,0.035) 1px, transparent 1px);
+    background-size:28px 28px;
+    mask-image:radial-gradient(ellipse at 50% 0%, black 0%, transparent 75%);
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 28px 120px; position:relative; z-index:1;}
+
+  /* nav */
+  .toc{
+    position:sticky; top:0; z-index:5;
+    background:rgba(11,36,26,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--panel-line);
+    margin:0 -28px 0;
+    padding:14px 28px;
+    display:flex; gap:18px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:12px;
+  }
+  .toc a{color:var(--muted); text-decoration:none; letter-spacing:.03em; white-space:nowrap;}
+  .toc a:hover{color:var(--copper-bright);}
+
+  .hero{padding:52px 0 34px; border-bottom:1px solid var(--panel-line); margin-bottom:48px;}
+  .eyebrow{
+    font-family:var(--mono); font-size:12.5px; letter-spacing:.14em; color:var(--copper-bright);
+    text-transform:uppercase; display:flex; align-items:center; gap:10px; margin-bottom:16px;
+  }
+  .eyebrow::before{content:""; width:18px; height:1px; background:var(--copper); display:inline-block;}
+  h1{font-family:var(--cond); font-weight:700; font-size:clamp(30px,4.6vw,46px); line-height:1.08; margin:0 0 12px; letter-spacing:-0.01em;}
+  h1 .part{color:var(--copper-bright);}
+  .subtitle{font-size:16px; color:var(--muted); max-width:600px; margin:0;}
+
+  section{margin-bottom:58px; position:relative; scroll-margin-top:70px;}
+  .designator{font-family:var(--mono); font-size:13px; color:var(--copper); letter-spacing:.06em; margin-bottom:8px; display:block;}
+  h2{
+    font-family:var(--cond); font-size:25px; font-weight:700; margin:0 0 18px; padding-bottom:14px;
+    border-bottom:1px solid var(--panel-line); display:flex; align-items:baseline; gap:12px;
+  }
+  h2 .trace{flex:1; height:1px; background:linear-gradient(90deg,var(--panel-line),transparent); margin-left:8px;}
+  h3{font-family:var(--sans); font-size:16px; font-weight:600; color:var(--copper-bright); margin:24px 0 8px;}
+  p{margin:0 0 14px; color:var(--text); font-size:15.5px;}
+  .muted{color:var(--muted);}
+  code,.pin,.term{
+    font-family:var(--mono); font-size:.9em; color:var(--solder); background:rgba(220,208,168,0.08);
+    padding:1px 5px; border-radius:3px; border:1px solid rgba(220,208,168,0.15);
+  }
+  ul,ol{margin:0 0 14px; padding-left:22px;}
+  li{margin-bottom:8px; font-size:15.5px;}
+  li::marker{color:var(--copper);}
+
+  .callout{background:var(--panel); border:1px solid var(--panel-line); border-left:3px solid var(--copper); padding:16px 18px; margin:18px 0; font-size:14.5px; border-radius:2px;}
+  .callout.warn{border-left-color:#d9784a;}
+  .cal-label{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--copper-bright); margin-bottom:6px; display:block;}
+  .callout.warn .cal-label{color:#e69a72;}
+
+  table{width:100%; border-collapse:collapse; margin:14px 0 8px; font-size:14px;}
+  thead th{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted-2); text-align:left; padding:8px 10px; border-bottom:1px solid var(--panel-line);}
+  tbody td{padding:10px; border-bottom:1px solid rgba(30,76,55,0.6); vertical-align:top; color:var(--text);}
+  tbody tr:hover{background:rgba(201,136,79,0.04);}
+  td.ref{font-family:var(--mono); color:var(--copper-bright); white-space:nowrap; font-weight:600;}
+  td.val{font-family:var(--mono); color:var(--solder); white-space:nowrap;}
+
+  details{background:var(--panel); border:1px solid var(--panel-line); border-radius:3px; margin:10px 0; overflow:hidden;}
+  summary{cursor:pointer; padding:12px 16px; font-weight:600; font-size:14.5px; color:var(--copper-bright); list-style:none; display:flex; align-items:center; justify-content:space-between;}
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:"+"; font-family:var(--mono); color:var(--copper); font-size:18px; transition:transform .2s ease;}
+  details[open] summary::after{transform:rotate(45deg);}
+  details .body{padding:0 16px 16px; font-size:14.5px; color:var(--muted); border-top:1px solid var(--panel-line); padding-top:12px;}
+
+  .diagram{margin:20px 0 10px;}
+  .diagram svg{width:100%; height:auto;}
+  .diagram figcaption{font-family:var(--mono); font-size:11.5px; color:var(--muted-2); text-align:center; margin-top:8px;}
+
+  .legend{display:flex; gap:20px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; color:var(--muted); margin:6px 0 18px;}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .swatch{width:12px; height:12px; border-radius:2px; display:inline-block;}
+
+  .formula{
+    font-family:var(--mono); background:var(--panel); border:1px solid var(--panel-line);
+    padding:14px 18px; margin:14px 0; font-size:14.5px; color:var(--solder); border-radius:3px;
+    overflow-x:auto;
+  }
+
+  .stackup{display:flex; flex-direction:column; gap:2px; margin:20px 0;}
+  .layer{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; font-family:var(--mono); font-size:13px;
+  }
+  .layer .name{color:var(--solder); font-weight:600;}
+  .layer .desc{color:var(--muted-2); font-size:11.5px;}
+  .layer.sig{background:rgba(127,184,163,0.1); border-left:3px solid var(--sig);}
+  .layer.gnd{background:rgba(92,143,174,0.12); border-left:3px solid var(--gnd);}
+  .layer.pwr{background:rgba(201,136,79,0.1); border-left:3px solid var(--copper);}
+
+  footer{margin-top:80px; padding-top:24px; border-top:1px solid var(--panel-line); font-family:var(--mono); font-size:12px; color:var(--muted-2); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+  ::selection{background:rgba(201,136,79,0.35); color:#fff;}
+  @media(max-width:640px){.toc{overflow-x:auto; flex-wrap:nowrap;}}
+</style>
+</head>
+<body>
+<div class="grid-overlay"></div>
+
+<nav class="toc">
+  <a href="#power">Power tree</a>
+  <a href="#ground">Ground split</a>
+  <a href="#diffpairs">Diff pairs</a>
+  <a href="#rj45">RJ45 map</a>
+  <a href="#esd">ESD</a>
+  <a href="#crystal">Crystal math</a>
+  <a href="#stackup">Stackup</a>
+  <a href="#debug">Bring-up</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Layout &amp; PCB deep dive</div>
+    <h1>KSZ<span class="part">8895MLUB</span><br>Hardware Design Details</h1>
+    <p class="subtitle">The layer beneath the schematic: ground splits, differential pair geometry, ESD strategy, and the actual numbers behind each layout rule.</p>
+  </div>
+
+  <!-- ============ POWER TREE ============ -->
+  <section id="power">
+    <span class="designator">B1 &mdash; power architecture</span>
+    <h2>The power tree, not just "add caps"<span class="trace"></span></h2>
+    <p>Power pins split into distinct domains &mdash; <span class="pin">VDDAT</span> (analog PHY, 3.3V), <span class="pin">VDDIO</span> (I/O ring, selectable 1.8/2.5/3.3V), and the internal core rail. The real topology bridges them deliberately, not just wires them together:</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg">
+        <text x="20" y="30" font-family="IBM Plex Mono" font-size="12" fill="#e3a869">+3.3V main rail</text>
+        <line x1="20" y1="40" x2="700" y2="40" stroke="#c9884f" stroke-width="2"/>
+
+        <!-- VDDIO branch -->
+        <line x1="150" y1="40" x2="150" y2="90" stroke="#c9884f" stroke-width="2"/>
+        <rect x="90" y="90" width="120" height="40" rx="3" fill="#123527" stroke="#1e4c37"/>
+        <text x="150" y="114" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#cfd8d2">VDDIO pins</text>
+
+        <!-- VDDAT branch through ferrite bead -->
+        <line x1="450" y1="40" x2="450" y2="70" stroke="#c9884f" stroke-width="2"/>
+        <rect x="425" y="70" width="50" height="22" fill="#0f2e21" stroke="#e3a869" stroke-width="1.5"/>
+        <text x="450" y="85" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#e3a869">FB1</text>
+        <line x1="450" y1="92" x2="450" y2="120" stroke="#c9884f" stroke-width="2"/>
+        <rect x="390" y="120" width="120" height="40" rx="3" fill="#123527" stroke="#1e4c37"/>
+        <text x="450" y="144" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#cfd8d2">VDDAT pins</text>
+
+        <!-- bulk caps each side of bead -->
+        <line x1="390" y1="60" x2="390" y2="80" stroke="#dcd0a8" stroke-width="1.5"/>
+        <text x="360" y="58" font-family="IBM Plex Mono" font-size="9.5" fill="#8fac9c">bulk cap</text>
+        <line x1="510" y1="100" x2="510" y2="120" stroke="#dcd0a8" stroke-width="1.5"/>
+        <text x="518" y="100" font-family="IBM Plex Mono" font-size="9.5" fill="#8fac9c">bulk cap</text>
+
+        <!-- local decoupling on VDDAT pin group -->
+        <g font-family="IBM Plex Mono" font-size="9.5" fill="#6b8a79">
+          <line x1="410" y1="160" x2="410" y2="180" stroke="#dcd0a8" stroke-width="1"/>
+          <line x1="450" y1="160" x2="450" y2="180" stroke="#dcd0a8" stroke-width="1"/>
+          <line x1="490" y1="160" x2="490" y2="180" stroke="#dcd0a8" stroke-width="1"/>
+          <text x="450" y="196" text-anchor="middle">0.1&#181;F &#215; each pin</text>
+        </g>
+
+        <!-- LDO branch -->
+        <line x1="620" y1="40" x2="620" y2="70" stroke="#c9884f" stroke-width="2"/>
+        <rect x="580" y="70" width="80" height="30" rx="3" fill="#0f2e21" stroke="#e3a869" stroke-width="1.5"/>
+        <text x="620" y="90" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#e3a869">LDO 1.2/1.8V</text>
+        <line x1="620" y1="100" x2="620" y2="130" stroke="#c9884f" stroke-width="2"/>
+        <rect x="560" y="130" width="120" height="34" rx="3" fill="#123527" stroke="#1e4c37"/>
+        <text x="620" y="152" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#cfd8d2">core logic pins</text>
+      </svg>
+      <figcaption>Bulk capacitance flanks the ferrite bead; local 0.1&micro;F caps sit at every VDDAT pin.</figcaption>
+    </div>
+
+    <details>
+      <summary>Why bulk caps on BOTH sides of the ferrite bead?</summary>
+      <div class="body">The bead blocks high-frequency noise from crossing between domains &mdash; that's its job. But if only one side has bulk capacitance, a current transient on the "empty" side has to pull current <em>through</em> the bead from the other domain, which is exactly the coupling path the bead is meant to prevent. Giving each domain its own local reservoir keeps that transient current local.</div>
+    </details>
+
+    <table>
+      <thead><tr><th>Ref</th><th>Component</th><th>Value</th><th>Placement rule</th></tr></thead>
+      <tbody>
+        <tr><td class="ref">FB1</td><td>Ferrite bead, 3.3V&rarr;VDDAT</td><td class="val">&mdash;</td><td>Between main rail and analog domain, near the domain split point</td></tr>
+        <tr><td class="ref">C&mdash;bulk</td><td>Bulk cap, each side of FB1</td><td class="val">4.7&ndash;22&micro;F</td><td>One per side minimum, more for larger rails</td></tr>
+        <tr><td class="ref">C&mdash;local</td><td>Local decoupling, per VDDAT pin</td><td class="val">0.1&micro;F, 0603 or smaller</td><td>Directly at the pin, short low-inductance via</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============ GROUND SPLIT ============ -->
+  <section id="ground">
+    <span class="designator">GND &mdash; isolation strategy</span>
+    <h2>Signal ground vs. chassis ground<span class="trace"></span></h2>
+    <p>The transformer's whole purpose is broken if the two grounds are tied solidly together right at the chip. They're kept apart and bridged in exactly one place, far from the switch IC:</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+        <rect x="30" y="70" width="140" height="50" rx="3" fill="#123527" stroke="#5c8fae" stroke-width="1.5"/>
+        <text x="100" y="100" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#7fb8a3">KSZ8895</text>
+        <text x="100" y="60" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#5c8fae">SIGNAL GND plane</text>
+
+        <line x1="170" y1="95" x2="280" y2="95" stroke="#7fb8a3" stroke-width="2"/>
+        <rect x="280" y="80" width="90" height="30" rx="3" fill="#0f2e21" stroke="#e3a869" stroke-width="1.5"/>
+        <text x="325" y="99" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#e3a869">Magnetics</text>
+
+        <line x1="370" y1="95" x2="460" y2="95" stroke="#7fb8a3" stroke-width="2"/>
+        <rect x="460" y="80" width="80" height="30" rx="3" fill="#123527" stroke="#e3a869" stroke-width="1.5"/>
+        <text x="500" y="99" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#cfd8d2">RJ45</text>
+
+        <text x="600" y="60" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#c9884f">CHASSIS GND</text>
+        <rect x="540" y="70" width="150" height="50" rx="3" fill="#123527" stroke="#c9884f" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="615" y="100" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#c9884f">shield + line-side taps</text>
+
+        <!-- the single bridge point far away -->
+        <line x1="100" y1="120" x2="100" y2="165" stroke="#5c8fae" stroke-width="1.5"/>
+        <line x1="615" y1="120" x2="615" y2="165" stroke="#c9884f" stroke-width="1.5"/>
+        <line x1="100" y1="165" x2="330" y2="165" stroke="#5c8fae" stroke-width="1.5"/>
+        <line x1="330" y1="165" x2="615" y2="165" stroke="#c9884f" stroke-width="1.5"/>
+        <rect x="300" y="150" width="60" height="30" fill="#0f2e21" stroke="#e3a869" stroke-width="1.5"/>
+        <text x="330" y="169" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#e3a869">FB2</text>
+        <text x="330" y="195" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#6b8a79">single bridge, placed far from U1</text>
+      </svg>
+      <figcaption>Signal and chassis ground meet at exactly one ferrite-bead bridge, away from the chip.</figcaption>
+    </div>
+
+    <div class="callout warn">
+      <span class="cal-label">Common mistake</span>
+      Transformer center taps (both TX and RX, chip side) must connect only to signal ground through a 0.1&ndash;10&micro;F common-mode capacitor &mdash; never to VDDAT or any supply rail. Tying a center tap to a power rail instead of ground biases the transformer incorrectly and degrades signal quality.
+    </div>
+
+    <p class="muted" style="font-size:14.5px;">On the line side, a Bob-Smith termination is sometimes added: ~75&Omega; from the center tap to chassis ground through a 1000&nbsp;pF / 2kV-rated capacitor, improving common-mode EMI rejection.</p>
+  </section>
+
+  <!-- ============ DIFF PAIRS ============ -->
+  <section id="diffpairs">
+    <span class="designator">MDI &mdash; trace geometry</span>
+    <h2>Differential pair routing rules<span class="trace"></span></h2>
+    <p>Every TX/RX pair between PHY and magnetics is a <strong>100&Omega; differential pair</strong>. The geometry is what actually holds that impedance &mdash; not just the resistor values elsewhere on the board.</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 700 160" xmlns="http://www.w3.org/2000/svg">
+        <!-- cross section -->
+        <rect x="60" y="30" width="580" height="14" fill="#5c8fae" opacity="0.5"/>
+        <text x="30" y="40" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#5c8fae">GND</text>
+
+        <rect x="220" y="60" width="10" height="8" fill="#7fb8a3"/>
+        <rect x="250" y="60" width="10" height="8" fill="#7fb8a3"/>
+        <text x="240" y="85" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#7fb8a3">+ / &ndash; pair</text>
+
+        <line x1="230" y1="60" x2="150" y2="60" stroke="#6b8a79" stroke-width="1" stroke-dasharray="3 3"/>
+        <line x1="230" y1="60" x2="330" y2="60" stroke="#6b8a79" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="100" y="55" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#8fac9c">&#8804; 3&#215;w clearance</text>
+        <text x="380" y="55" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#8fac9c">(5&#215;w preferred)</text>
+
+        <rect x="60" y="110" width="580" height="14" fill="#5c8fae" opacity="0.5"/>
+        <text x="620" y="120" text-anchor="start" font-family="IBM Plex Mono" font-size="10" fill="#5c8fae">continuous GND ref (layer below)</text>
+      </svg>
+      <figcaption>Constant spacing, matched length, continuous reference plane below.</figcaption>
+    </div>
+
+    <ul>
+      <li><strong>Length matching:</strong> keep +/&minus; within ~50 mils of each other &mdash; skew becomes common-mode noise and hurts return loss.</li>
+      <li><strong>Constant spacing:</strong> don't let the pair drift wider or narrower along its run; that changes impedance and creates reflection points.</li>
+      <li><strong>Ground clearance on the same layer:</strong> at least 3&times; the trace width, 5&times; preferred, to avoid unwanted capacitive loading.</li>
+      <li><strong>Continuous reference plane</strong> directly beneath the pair for its whole length &mdash; except where intentionally voided.</li>
+      <li><strong>Plane void under magnetics, ESD diodes, AC-coupling caps</strong> &mdash; prevents return current from bridging chassis and signal ground through the plane itself. Automotive designs void two full layers here, not just one.</li>
+      <li><strong>45&deg; or curved corners only</strong> near ESD-sensitive nets &mdash; sharp 90&deg; corners are impedance discontinuities and minor antennas.</li>
+    </ul>
+  </section>
+
+  <!-- ============ RJ45 MAP ============ -->
+  <section id="rj45">
+    <span class="designator">J1 &mdash; connector pinout</span>
+    <h2>RJ45-to-PHY signal mapping<span class="trace"></span></h2>
+    <p>For a standard (non-crossover) MDI port, the mapping isn't arbitrary:</p>
+    <table>
+      <thead><tr><th>RJ45 pin</th><th>Signal</th></tr></thead>
+      <tbody>
+        <tr><td class="ref">1</td><td>RX+</td></tr>
+        <tr><td class="ref">2</td><td>RX&minus;</td></tr>
+        <tr><td class="ref">3</td><td>TX+</td></tr>
+        <tr><td class="ref">6</td><td>TX&minus;</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <span class="cal-label">Auto-MDIX caveat</span>
+      If you're relying on Auto-MDIX (auto-detecting straight vs. crossover cable, which the KSZ8895 supports), the magnetics module must specifically support Auto-MDIX operation. Some modules are wired for fixed MDI only &mdash; picking the wrong one silently defeats the chip's auto-negotiation/polarity-swap capability.
+    </div>
+  </section>
+
+  <!-- ============ ESD ============ -->
+  <section id="esd">
+    <span class="designator">D1&ndash;D8 &mdash; connector-side protection</span>
+    <h2>ESD protection at the jack<span class="trace"></span></h2>
+    <p>The transformer provides inherent isolation, but real designs add explicit protection right at the connector:</p>
+    <ul>
+      <li><strong>Bidirectional TVS diode arrays</strong> across each differential pair, placed as close to the RJ45 as possible &mdash; before the signal travels any distance across the board.</li>
+      <li><strong>Short, direct trace from connector to TVS</strong> &mdash; ESD is a sub-nanosecond transient; a long trace lets the pulse couple into neighboring traces before it's clamped.</li>
+      <li><strong>Dedicated, unshared ground return</strong> for the TVS &mdash; a shared via means the ESD pulse's brief but intense localized magnetic field can couple into whatever else uses that via.</li>
+      <li><strong>Large chassis-ground footprint</strong> (often SMD_1210 or larger) at the single bridge point to digital ground &mdash; chosen for low impedance at ESD-relevant frequencies.</li>
+    </ul>
+    <details>
+      <summary>Unidirectional vs bidirectional TVS &mdash; which and why?</summary>
+      <div class="body">Unidirectional TVS diodes suit DC rails that only swing one polarity. Ethernet's differential pairs swing above and below ground in normal operation, so <strong>bidirectional</strong> TVS devices are required there &mdash; a unidirectional part would clip half of every legitimate signal swing, not just ESD events.</div>
+    </details>
+  </section>
+
+  <!-- ============ CRYSTAL MATH ============ -->
+  <section id="crystal">
+    <span class="designator">Y1 &mdash; oscillator sizing</span>
+    <h2>Load capacitor calculation<span class="trace"></span></h2>
+    <p>The two load caps on X1/X2 aren't arbitrary values &mdash; they're derived from the crystal's rated load capacitance (C<sub>L</sub>, typically 10&ndash;20pF, given on the crystal's own datasheet):</p>
+    <div class="formula">C_load_cap &asymp; 2 &times; (C_L &minus; C_stray)<br><span style="color:#6b8a79;">// C_stray: board + pin parasitic capacitance, commonly assumed ~3&ndash;5pF</span></div>
+    <p class="muted" style="font-size:14.5px;">Example: crystal rated at 18pF load capacitance, ~4pF stray &rarr; (18&minus;4)&times;2 &asymp; 28pF split across two caps. In practice, most designs just use the crystal vendor's app-note recommendation directly &mdash; commonly landing in the 15&ndash;22pF range &mdash; since stray capacitance is board-specific and hard to predict exactly by hand.</p>
+    <ul>
+      <li><strong>Drive level:</strong> confirm the crystal's rated drive level is compatible (commonly ~100&micro;W or higher) &mdash; too low relative to what the internal oscillator expects can cause unstable startup.</li>
+      <li><strong>Physical placement:</strong> keep the crystal and both load caps close to X1/X2 with a short, direct ground return &mdash; this loop is a free-running RF oscillator, one of the more EMI-sensitive spots on the whole board.</li>
+    </ul>
+  </section>
+
+  <!-- ============ STACKUP ============ -->
+  <section id="stackup">
+    <span class="designator">STK &mdash; board construction</span>
+    <h2>A practical 4-layer stackup<span class="trace"></span></h2>
+    <div class="stackup">
+      <div class="layer sig"><span class="name">L1 &mdash; TOP</span><span class="desc">components, MDI pairs, MII/RMII bus</span></div>
+      <div class="layer gnd"><span class="name">L2 &mdash; GND</span><span class="desc">continuous reference, directly under L1</span></div>
+      <div class="layer pwr"><span class="name">L3 &mdash; POWER</span><span class="desc">split planes: 3.3V, 1.8V/1.2V core domains</span></div>
+      <div class="layer sig"><span class="name">L4 &mdash; BOTTOM</span><span class="desc">lower-speed signals, strap resistors, LEDs</span></div>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--sig)"></span>signal layer</span>
+      <span><span class="swatch" style="background:var(--gnd)"></span>ground reference</span>
+      <span><span class="swatch" style="background:var(--copper)"></span>power plane</span>
+    </div>
+    <p>The core discipline: every high-speed differential pair keeps an <strong>uninterrupted reference plane on the very next layer down</strong>. If a trace must change layers, route the transition through vias placed near a ground-stitching via, so return current has a low-inductance path to follow the signal across the layer change.</p>
+  </section>
+
+  <!-- ============ DEBUG ============ -->
+  <section id="debug">
+    <span class="designator">TP1&ndash;TPn &mdash; bring-up provisions</span>
+    <h2>Designing for bring-up, not just function<span class="trace"></span></h2>
+    <ul>
+      <li><strong>Test points</strong> on RST_N, the 25MHz clock (if accessible), and each strap pin &mdash; verify reset timing and boot-time configuration with a scope before assuming misbehavior is a firmware bug.</li>
+      <li><strong>0&Omega; resistor options on ambiguous straps</strong> instead of hard-wired pull-up/pull-down &mdash; a guessed-wrong mode (MII vs RMII on Port 5) becomes a rework, not a redesign.</li>
+      <li><strong>Unpopulated LED footprints</strong> even if not planned for production &mdash; since those pins double as straps, having the pads present (DNP'd) gives visibility during bring-up without committing board space permanently.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>KSZ8895MLUB &middot; PCB &amp; layout deep dive</span>
+    <span>Reference notes &middot; verify against the full datasheet + hardware design checklist</span>
+  </footer>
+</div>
+</body>
+</html>

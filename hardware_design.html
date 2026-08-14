@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KSZ8895MLUB-ND — Hardware Design Reference</title>
+<style>
+  :root{
+    --bg: #0c0d10;
+    --panel: #14161b;
+    --panel2: #191c22;
+    --border: #262a33;
+    --text: #d7dbe2;
+    --dim: #8b93a3;
+    --steel: #7fa3c4;
+    --sage: #8faa8a;
+    --violet: #a596c7;
+    --amber: #c2a76b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family: "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    line-height:1.6;
+    margin:0;
+    padding:0 0 60px 0;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:36px 24px;}
+  h1{
+    color:var(--steel);
+    font-size:1.9em;
+    margin-bottom:4px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:14px;
+  }
+  .subtitle{color:var(--dim);font-size:0.95em;margin-bottom:30px;}
+  h2{
+    color:var(--sage);
+    font-size:1.3em;
+    margin-top:44px;
+    margin-bottom:12px;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--border);
+  }
+  h3{
+    color:var(--violet);
+    font-size:1.08em;
+    margin-top:26px;
+    margin-bottom:8px;
+  }
+  p{margin:10px 0;color:var(--text);}
+  .dim{color:var(--dim);}
+  code, .val{
+    font-family: "SF Mono", Consolas, monospace;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--amber);
+    padding:1px 6px;
+    border-radius:4px;
+    font-size:0.92em;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px 22px;
+    margin:16px 0;
+  }
+  .why{
+    border-left:3px solid var(--sage);
+    background:var(--panel2);
+    padding:10px 16px;
+    margin:12px 0;
+    border-radius:0 6px 6px 0;
+  }
+  .why b{color:var(--sage);}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin:14px 0;
+    font-size:0.93em;
+  }
+  th{
+    background:var(--panel2);
+    color:var(--steel);
+    text-align:left;
+    padding:8px 10px;
+    border:1px solid var(--border);
+  }
+  td{
+    padding:8px 10px;
+    border:1px solid var(--border);
+    color:var(--text);
+    vertical-align:top;
+  }
+  tr:nth-child(even) td{background:#101216;}
+  ul, ol{padding-left:22px;}
+  li{margin:6px 0;}
+  .tag{
+    display:inline-block;
+    font-size:0.75em;
+    padding:2px 8px;
+    border-radius:12px;
+    margin-left:8px;
+    font-weight:600;
+    letter-spacing:0.02em;
+  }
+  .tag.required{background:#2a3a2f;color:var(--sage);}
+  .tag.recommended{background:#33302a;color:var(--amber);}
+  .tag.optional{background:#2a2e3a;color:var(--steel);}
+  svg{background:var(--panel2);border:1px solid var(--border);border-radius:8px;display:block;margin:14px auto;}
+  .pinlabel{fill:var(--steel);font-size:11px;font-family:monospace;}
+  .netlabel{fill:var(--dim);font-size:10px;font-family:monospace;}
+  .comp{fill:none;stroke:#9aa3b2;stroke-width:1.3;}
+  .wire{stroke:#5c6472;stroke-width:1.3;fill:none;}
+  .icbox{fill:#1b1e25;stroke:var(--violet);stroke-width:1.3;}
+  footer{color:var(--dim);font-size:0.85em;margin-top:50px;border-top:1px solid var(--border);padding-top:16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>KSZ8895MLUB-ND</h1>
+<div class="subtitle">Microchip (ex-Micrel) KSZ8895MLU — integrated 5-port 10/100 managed Ethernet switch. Reference-design breakdown: every supporting component, why it exists, and why it has the value it has.</div>
+
+<h2>1. What the chip actually is</h2>
+<div class="card">
+<p>The <span class="val">KSZ8895MLUB-ND</span> is a Digi-Key order code for the <b>KSZ8895ML</b>, a single-chip Layer-2 managed Ethernet switch in a 128-pin LQFP package. Inside one die you get:</p>
+<ul>
+<li><b>5 independent 10/100 PHYs</b> (analog transceivers) — one per physical RJ45 port.</li>
+<li><b>5 MAC engines</b> feeding a shared, non-blocking switch fabric with a 64 KB frame buffer.</li>
+<li>A <b>look-up engine</b> with a 1K-entry unicast address table, VLAN (802.1Q, up to 128 groups), QoS (802.1p/DiffServ, up to 4 queues/port), IGMP snooping, rate limiting, port mirroring, and RSTP support.</li>
+<li>A flexible <b>Port 5</b> that can either stay internal, or be broken out as a separate MAC and/or PHY over MII/RMII — this is what lets you use the chip as a "4-port switch + 1 CPU uplink" in a router/gateway design.</li>
+<li>Management via <b>SPI</b>, <b>I²C (master, for EEPROM)</b>, or <b>MDC/MDIO</b> — or no CPU at all, using pin-strapping for a fully unmanaged switch.</li>
+</ul>
+<p>Because everything (PHY analog front end, MAC, switch fabric, buffer memory) is on one die, the "external component" story is much shorter than a discrete PHY+switch+MCU design — but the pieces that remain are all critical, not optional decoration.</p>
+</div>
+
+<h2>2. The complete support-circuit checklist</h2>
+<table>
+<tr><th>Block</th><th>Components</th><th>Necessity</th></tr>
+<tr><td>Power supply / sequencing</td><td>3.3V regulator, internal-LDO MOSFET or external 1.2V LDO, bulk + decoupling caps, ferrite beads</td><td class="tag required">Required</td></tr>
+<tr><td>Clock reference</td><td>25 MHz crystal + 2 load caps (or a 3.3V oscillator)</td><td class="tag required">Required</td></tr>
+<tr><td>PHY transmit current reference</td><td>12.4 kΩ 1% resistor on <span class="val">ISET</span></td><td class="tag required">Required</td></tr>
+<tr><td>Reset supervisor</td><td>RC network or dedicated supervisor IC on <span class="val">RST_N</span></td><td class="tag required">Required</td></tr>
+<tr><td>Line-side magnetics</td><td>5× Ethernet isolation transformers (integrated w/ RJ45 or discrete), Bob-Smith termination caps, chassis-ground caps</td><td class="tag required">Required</td></tr>
+<tr><td>Configuration straps</td><td>Pull-up / pull-down resistors on strap pins (only if unmanaged mode)</td><td class="tag recommended">Conditionally required</td></tr>
+<tr><td>Management bus pull-ups</td><td>Pull-ups on SPI/I²C/MDIO lines</td><td class="tag required">Required</td></tr>
+<tr><td>Status LEDs</td><td>Current-limiting resistors per LED</td><td class="tag optional">Optional</td></tr>
+<tr><td>ESD / surge protection</td><td>TVS array or common-mode choke at the RJ45 side</td><td class="tag recommended">Strongly recommended</td></tr>
+</table>
+
+<h2>3. Power supply architecture</h2>
+<p>The chip needs three supply domains, all derived from a single 3.3V rail:</p>
+<table>
+<tr><th>Rail</th><th>Pins</th><th>Value</th><th>Purpose</th></tr>
+<tr><td><span class="val">VDDAT</span></td><td>9, 18, 24, 37</td><td>3.3V</td><td>Analog transceiver supply (line drivers)</td></tr>
+<tr><td><span class="val">VDDIO</span></td><td>59, 77, 100</td><td>1.8 / 2.5 / 3.3V (your choice)</td><td>Digital I/O ring — sets the logic level of MII/RMII/SPI/strap pins</td></tr>
+<tr><td><span class="val">VDDAR</span></td><td>3, 15, 31</td><td>1.2V (filtered, fed back in)</td><td>Analog core</td></tr>
+<tr><td><span class="val">VDDC</span></td><td>50, 89, 117</td><td>1.2V</td><td>Digital core logic</td></tr>
+</table>
+
+<div class="why"><b>Why a separate 1.2V rail exists:</b> the 0.11 µm core logic can't tolerate 3.3V — it needs a low-voltage rail for both power and reliability reasons. Rather than force you to add a full switching regulator just for this, Microchip built an <b>internal LDO controller</b> that drives an external pass MOSFET, so your only "extra" active component for 1.2V generation is a cheap SOT-23 N-MOSFET, not a whole buck converter.</div>
+
+<h3>3.1 Option A — internal LDO controller + external MOSFET (single 3.3V supply)</h3>
+<p>This is the lowest-BOM-cost option and the one most designs use.</p>
+<svg viewBox="0 0 720 260" width="100%" height="260">
+  <text x="20" y="24" class="netlabel">3.3V IN</text>
+  <line x1="20" y1="30" x2="120" y2="30" class="wire"/>
+  <!-- resistor divider -->
+  <rect x="110" y="40" width="20" height="30" class="comp"/>
+  <text x="138" y="60" class="netlabel">4k</text>
+  <line x1="120" y1="30" x2="120" y2="40" class="wire"/>
+  <line x1="120" y1="70" x2="120" y2="90" class="wire"/>
+  <rect x="110" y="90" width="20" height="30" class="comp"/>
+  <text x="138" y="110" class="netlabel">2k</text>
+  <line x1="120" y1="120" x2="120" y2="150" class="wire"/>
+  <text x="20" y="148" class="netlabel">GND</text>
+  <line x1="20" y1="150" x2="120" y2="150" class="wire"/>
+  <!-- node to pin126 -->
+  <line x1="120" y1="80" x2="230" y2="80" class="wire"/>
+  <circle cx="120" cy="80" r="2.5" fill="#9aa3b2"/>
+  <text x="150" y="76" class="netlabel">to IN_PWR_SEL (pin126)</text>
+
+  <!-- IC box -->
+  <rect x="230" y="20" width="160" height="180" rx="6" class="icbox"/>
+  <text x="310" y="15" text-anchor="middle" class="pinlabel" fill="#a596c7">KSZ8895ML</text>
+  <text x="240" y="90" class="pinlabel">IN_PWR_SEL</text>
+  <text x="240" y="60" class="pinlabel">LDO_O</text>
+  <text x="240" y="140" class="pinlabel">VDDAR</text>
+
+  <!-- LDO_O to mosfet gate -->
+  <line x1="390" y1="58" x2="470" y2="58" class="wire"/>
+  <text x="400" y="52" class="netlabel">LDO_O (pin125) → Gate</text>
+
+  <!-- mosfet symbol (simplified) -->
+  <rect x="470" y="40" width="14" height="60" class="comp"/>
+  <text x="460" y="30" class="netlabel">N-MOSFET</text>
+  <text x="490" y="48" class="netlabel">D</text>
+  <text x="490" y="70" class="netlabel">G</text>
+  <text x="490" y="98" class="netlabel">S</text>
+
+  <!-- 3.3V to drain -->
+  <line x1="477" y1="10" x2="477" y2="40" class="wire"/>
+  <text x="482" y="15" class="netlabel">3.3V</text>
+
+  <!-- source to 100 ohm to VDDAR -->
+  <line x1="477" y1="100" x2="477" y2="130" class="wire"/>
+  <rect x="467" y="130" width="20" height="30" class="comp"/>
+  <text x="495" y="150" class="netlabel">~100Ω</text>
+  <line x1="477" y1="160" x2="477" y2="200" class="wire"/>
+  <line x1="390" y1="140" x2="477" y2="140" class="wire" stroke-dasharray="3,3"/>
+  <text x="400" y="200" class="netlabel">Filtered 1.2V → VDDAR feedback (short trace, no series parts)</text>
+  <line x1="477" y1="200" x2="600" y2="200" class="wire"/>
+  <rect x="600" y="185" width="10" height="30" class="comp"/>
+  <text x="595" y="230" class="netlabel">bulk +<br/>decoupling</text>
+</svg>
+<div class="why">
+<b>Why the 4kΩ / 2kΩ divider:</b> <span class="val">IN_PWR_SEL</span> (pin 126) both enables the internal LDO controller and sets the target gate-drive point. The datasheet's recommended divider produces roughly <span class="val">1.1V</span> at the pin from a 3.3V rail — above the ~1V enable threshold, so the controller turns on, but scaled so the loop regulates the MOSFET source (drain-to-VDDAR path) to ~1.2V rather than letting it run open-loop. If you pull this pin low instead, the internal controller disables itself and pin 125 tri-states — that's the switch you'd flip if you decided to use option B instead.<br><br>
+<b>Why the ~100Ω resistor between MOSFET source and drain:</b> this is a startup/stability aid explicitly called out in the datasheet — it prevents the LDO loop from a hard inrush transient when the MOSFET first turns on, and gives a defined (if small) leakage path so the 1.2V node doesn't float indeterminately before the loop closes.<br><br>
+<b>Why the VDDAR feedback path must be short with no series components:</b> this is the sense line for LDO regulation. Any resistance or long trace in that path adds IR drop that the loop can't distinguish from load — you'd get a nominally "1.2V" rail that's actually sagging under load. Keep it a short, direct copper connection.
+</div>
+
+<h3>3.2 Option B — external 1.2V LDO regulator</h3>
+<p>If you'd rather use a normal off-the-shelf 1.2V LDO (e.g. for tighter tolerance or lower noise), tie <span class="val">IN_PWR_SEL</span> low through a pull-down resistor (~1kΩ is the datasheet's example) to disable the internal controller, then feed VDDAR/VDDC directly from your external regulator's output. There's no power-sequencing requirement between rails as long as everything is up before reset releases — one less thing to get wrong versus many multi-rail chips.</p>
+
+<h3>3.3 Decoupling and bulk capacitance</h3>
+<div class="why">
+<b>Why so many small caps per rail:</b> standard mixed-signal practice — a <span class="val">0.1 µF</span> ceramic at every VDD pin (right at the pin, shortest loop to the nearest ground via) handles high-frequency switching noise from the internal digital logic and the PHY's 125 MHz DSP core; a couple of <span class="val">1–10 µF</span> bulk caps per rail (one per 2–3 power pins is typical) handle lower-frequency load transients, especially on VDDAT which is feeding five independent line drivers that can all switch simultaneously. Ferrite beads between the noisy digital-adjacent VDDIO/VDDC rail and the "clean" analog VDDAT/VDDAR rail (as shown in the datasheet's own figures) suppress high-frequency noise coupling between the switch's digital core and its analog PHYs — this is the single biggest lever you have over cable-side EMI performance and receiver sensitivity, since the PHYs are directly sensitive to noise injected on their own supply.
+</div>
+
+<h2>4. Reference clock — 25 MHz crystal/oscillator</h2>
+<svg viewBox="0 0 500 160" width="100%" height="160">
+  <rect x="180" y="20" width="140" height="100" rx="6" class="icbox"/>
+  <text x="250" y="15" text-anchor="middle" class="pinlabel" fill="#a596c7">KSZ8895ML</text>
+  <text x="190" y="55" class="pinlabel">X1 (pin121)</text>
+  <text x="190" y="95" class="pinlabel">X2 (pin122)</text>
+
+  <line x1="180" y1="50" x2="90" y2="50" class="wire"/>
+  <line x1="180" y1="90" x2="90" y2="90" class="wire"/>
+  <rect x="60" y="45" width="30" height="50" class="comp"/>
+  <text x="35" y="75" class="netlabel">25MHz</text>
+  <text x="30" y="88" class="netlabel">XTAL</text>
+
+  <!-- load caps -->
+  <line x1="90" y1="50" x2="90" y2="20" class="wire"/>
+  <line x1="90" y1="20" x2="60" y2="20" class="wire"/>
+  <rect x="45" y="10" width="16" height="8" class="comp"/>
+  <line x1="45" y1="14" x2="20" y2="14" class="wire"/>
+  <text x="0" y="10" class="netlabel">GND</text>
+
+  <line x1="90" y1="90" x2="90" y2="130" class="wire"/>
+  <line x1="90" y1="130" x2="60" y2="130" class="wire"/>
+  <rect x="45" y="122" width="16" height="8" class="comp"/>
+  <line x1="45" y1="126" x2="20" y2="126" class="wire"/>
+  <text x="0" y="140" class="netlabel">GND</text>
+  <text x="65" y="8" class="netlabel">CL1</text>
+  <text x="65" y="145" class="netlabel">CL2</text>
+</svg>
+<div class="why">
+<b>Why exactly 25 MHz:</b> it's not arbitrary — every internal clock the switch needs (125 MHz for the 100BASE-TX serializer, 83 MHz, 41 MHz, 10 MHz) is derived by the PLL synthesizer from this single reference, and 25 MHz is the frequency Microchip's PLL multiplier ratios were designed around. You cannot substitute a different crystal frequency without breaking every derived clock in the chip.<br><br>
+<b>Why ±50 ppm tolerance matters:</b> this directly maps to the Ethernet standard's own frequency-accuracy requirement for line-side timing (100BASE-TX needs the transmit clock within ±50 ppm of nominal for interoperability and jitter budget). A cheap ±100 ppm crystal will still "work" on a bench but risks marginal links over longer or noisier cable runs.<br><br>
+<b>Why the two load capacitors:</b> a crystal only oscillates at its rated frequency when loaded with its specified load capacitance (commonly 15–20 pF for this class of parts — check your specific crystal's datasheet, not the switch's). CL1/CL2 sit from each crystal pin to ground and, combined with the pin's own parasitic capacitance, form the total load the crystal sees. Get this wrong and the oscillator frequency shifts off-spec even though it still starts up and "looks fine" on a scope.<br><br>
+<b>Oscillator alternative:</b> pin X1 can also just accept a 3.3V active oscillator module output directly (X2 left unconnected), which trades a couple of passives for one active part — useful if your BOM already standardizes on canned oscillators for other clocks.
+</div>
+
+<h2>5. PHY transmit current reference — <span class="val">ISET</span></h2>
+<svg viewBox="0 0 420 140" width="100%" height="140">
+  <rect x="150" y="20" width="140" height="90" rx="6" class="icbox"/>
+  <text x="220" y="15" text-anchor="middle" class="pinlabel" fill="#a596c7">KSZ8895ML</text>
+  <text x="160" y="65" class="pinlabel">ISET (pin17)</text>
+  <line x1="150" y1="60" x2="90" y2="60" class="wire"/>
+  <rect x="60" y="55" width="30" height="10" class="comp"/>
+  <text x="45" y="45" class="netlabel">12.4kΩ 1%</text>
+  <line x1="60" y1="60" x2="30" y2="60" class="wire"/>
+  <line x1="30" y1="60" x2="30" y2="100" class="wire"/>
+  <text x="10" y="115" class="netlabel">GND</text>
+</svg>
+<div class="why">
+<b>What it does:</b> pin 17 (<span class="val">ISET</span>) programs the bias current for the 100BASE-TX MLT-3 transmit driver across all five PHYs from one external resistor.<br><br>
+<b>Why exactly 12.4 kΩ, 1%:</b> this value is what the internal current mirror is designed around to produce the correct MLT-3 output amplitude into a 1:1 transformer ratio and 100Ω differential line impedance, per the ANSI TP-PMD amplitude/overshoot/jitter spec. The 1% tolerance isn't cosmetic — since amplitude is directly proportional to this reference current, a looser resistor tolerance (5%) translates almost linearly into transmit amplitude error, which eats into your link margin on long or lossy cable runs and can fail interop/compliance testing even though the port "links up fine" on a short bench cable.
+</div>
+
+<h2>6. Reset supervisor</h2>
+<div class="why">
+<b>Why it's needed at all:</b> <span class="val">RST_N</span> (pin 115, active-low, internal weak pull-up) must be held low until every power rail is stable, then released cleanly — a slow, noisy, or premature power-up on 3.3V/1.2V can leave internal state machines and strap-pin latches in an undefined condition. Since the strap pins (LED, port config, mode-select pins) are sampled at reset release, a glitchy reset can literally boot the switch into the wrong configuration.<br><br>
+<b>Typical circuit:</b> Microchip's KSZ89xx switch family (this chip's closest siblings — same reset philosophy) documents a simple RC hold-off: a pull-up resistor from VDDIO to RST_N together with a capacitor from RST_N to ground, sized so the RC time constant gives on the order of <span class="val">80–100 ms</span> of hold-off after the last rail stabilizes — comfortably longer than typical LDO/regulator power-up settling time. A commonly used pairing is a <span class="val">10 kΩ</span> pull-up with a <span class="val">10 µF</span> capacitor (τ ≈ 100 ms). If your system already has a CPU/FPGA-driven reset, you can instead gate that signal through an open-drain/open-collector buffer or a small diode-OR into the same RC node, so either a power-on reset or a CPU-commanded reset can assert RST_N.
+</div>
+<div class="card">
+<b>Design note:</b> confirm the exact R/C pairing against the KSZ8895 datasheet's own "Recommended Reset Circuit" figure for your specific revision — the value only needs to satisfy "longer than your slowest rail's settling time," so it's tunable, but don't go so large that you meaningfully delay boot in a system with fast reset-retry logic.
+</div>
+
+<h2>7. Line-side magnetics (Ethernet transformers)</h2>
+<div class="why">
+<b>Why transformers are required even though the PHY analog front end is on-chip:</b> IEEE 802.3 requires galvanic isolation between the switch's signal ground and the cable — this protects against ground-potential differences and surge energy coming in from the cable plant, and it's what lets Auto-MDIX/polarity swapping work cleanly. A 1:1 turns-ratio transformer is required per port to match the ISET reference current setup described above.<br><br>
+<b>Why "on-chip termination" simplifies your BOM:</b> this switch integrates the 100Ω differential termination resistors and internal biasing that older designs needed as external parts — so unlike some legacy PHYs, you do <i>not</i> need to add external termination resistor networks on TX/RX pairs, and the transformer's center taps do not need to be tied to analog power or tied together between the RX and TX sides. That removes a handful of resistors and simplifies layout versus earlier-generation Micrel switches (KSZ8995/KS8995 family), which did require that.<br><br>
+<b>Bob-Smith termination (common-mode) capacitors:</b> even with on-chip differential termination, most designs still add a small common-mode termination network at the transformer's center taps — typically <span class="val">75Ω</span> resistors from each center tap to a common node, with a <span class="val">1000–2200 pF</span> (often ~1.5 nF) capacitor from that node to chassis ground. This isn't for differential signal integrity; it's specifically to shunt common-mode noise and ESD energy to chassis ground before it reaches sensitive board-side components, and it's standard practice across essentially all magjack designs regardless of switch vendor.<br><br>
+<b>Transformer selection criteria:</b> the datasheet calls out needing adequate insertion loss, return loss, and isolation (typically 1500 Vrms) specs matched to 100BASE-TX/10BASE-T requirements, and lists qualified magnetics vendors — in practice, any magjack (integrated RJ45+transformer module) or discrete transformer marketed for 10/100 Ethernet switch/PHY applications from a reputable vendor (Pulse, Bel Fuse, Halo, etc.) will meet this.
+</div>
+
+<h2>8. Configuration strapping (unmanaged-mode pins)</h2>
+<p>If you're not driving the switch from a host CPU (i.e., running it purely off default register values or EEPROM), several pins double as configuration straps sampled at reset release — most of these are LED pins, and most already have <b>internal</b> pull-ups or pull-downs, meaning the "default" behavior requires <i>no external resistor at all</i>. You only need an external resistor where you want to override the default.</p>
+<table>
+<tr><th>Pin</th><th>Default (no external R)</th><th>Override to opposite state</th></tr>
+<tr><td>MDIXDIS</td><td>PD → Auto MDI/MDI-X enabled</td><td>PU → disable auto crossover</td></tr>
+<tr><td>PMRXD3</td><td>PD → flow control enabled</td><td>PU → disable flow control</td></tr>
+<tr><td>PS1 / PS0</td><td>PD/PD → I²C master mode for EEPROM</td><td>strap per truth table for SMI / SPI-slave / test mode</td></tr>
+<tr><td>LED5-0 (port 4)</td><td>PU → auto-negotiation enabled</td><td>PD → disabled</td></tr>
+<tr><td>SCONF1/SCONF0/LED5-1</td><td>Port-5 MII/RMII disabled by default</td><td>strap per truth table to bring up MAC5/PHY5 externally</td></tr>
+</table>
+<div class="why"><b>Why this matters for design:</b> because these are dual-function pins (LED drive during normal operation, strap sense during reset), a resistor value in the low kΩ range (typically the same <span class="val">4.7–10 kΩ</span> range used for logic-level pull resistors elsewhere) is enough to establish the strap state without materially loading the LED drive current afterward. Get the polarity backwards and you won't get an obvious hardware failure — you'll get a switch that links up but silently runs in the wrong mode (e.g., flow control forced on, or Port 5 stuck disabled).</div>
+
+<h2>9. Management interface pull-ups</h2>
+<div class="why">
+The <span class="val">MDIO</span>, <span class="val">SPIQ</span>, <span class="val">SPIC/SCL</span>, and <span class="val">SPID/SDA</span> pins are explicitly called out in the datasheet as needing an <b>external pull-up</b> whenever they're driven, because they're open-drain-style shared/bidirectional lines (this is standard MDIO and I²C bus behavior, and SPI here shares the same physical pins in some modes). A <span class="val">2.2–10 kΩ</span> pull-up to VDDIO on each is typical — exact value is a bus-loading/speed tradeoff, not a chip-specific constraint: lower R gives faster rise time for higher SPI/I²C clock rates at the cost of more static current, higher R saves power but limits bus speed with any appreciable trace/pin capacitance.
+</div>
+
+<h2>10. LED indicators</h2>
+<p>Each port has up to 3 LED pins (link/activity/speed/duplex, selectable via strap mode 0 or 1) that can sink current directly. A standard <span class="val">330Ω–1kΩ</span> series resistor per LED (chosen for your LED's forward voltage and desired brightness at the pin's rated sink current, typically a few mA) is all that's needed — this is generic LED-driver sizing, not switch-specific, and it's entirely optional if you don't need front-panel link indicators.</p>
+
+<h2>11. Layout considerations worth internalizing</h2>
+<ul>
+<li><b>Split analog vs. digital ground/power pours only if your stackup and reference design call for it</b> — many modern designs use a single solid ground plane with careful component placement instead, since needlessly splitting planes can create return-path discontinuities that hurt EMI more than they help.</li>
+<li>Keep the <b>crystal</b> and its load caps as close to X1/X2 as possible, on the top layer if feasible, with a guard/ground pour around it — this is a low-level analog oscillator and is sensitive to coupled digital switching noise.</li>
+<li>Route <b>TX/RX differential pairs</b> to each transformer as matched-length, controlled-impedance (100Ω differential) traces, and keep them well clear of the crystal and any switching regulator.</li>
+<li>Place <b>bulk and decoupling caps</b> for VDDAT (analog transceiver rail) as close as possible to their respective pins — this rail feeds the most noise-sensitive circuitry in the chip.</li>
+<li>Keep the <b>Bob-Smith termination network and chassis-ground caps</b> physically near the transformer/magjack, with a short, direct path to chassis ground (not signal ground) — that's the whole point of the network.</li>
+</ul>
+
+<h2>12. Minimal BOM summary</h2>
+<table>
+<tr><th>Item</th><th>Typical value</th><th>Qty</th></tr>
+<tr><td>N-channel MOSFET (1.2V LDO pass device)</td><td>Low RDS(on), logic-level gate</td><td>1</td></tr>
+<tr><td>LDO bias divider resistors</td><td>4kΩ / 2kΩ</td><td>2</td></tr>
+<tr><td>MOSFET source-drain damping resistor</td><td>~100Ω</td><td>1</td></tr>
+<tr><td>25 MHz crystal, ±50 ppm</td><td>—</td><td>1</td></tr>
+<tr><td>Crystal load capacitors</td><td>per crystal datasheet (commonly 15–20 pF)</td><td>2</td></tr>
+<tr><td>ISET reference resistor</td><td>12.4 kΩ, 1%</td><td>1</td></tr>
+<tr><td>Reset pull-up resistor</td><td>~10 kΩ</td><td>1</td></tr>
+<tr><td>Reset capacitor</td><td>~10 µF</td><td>1</td></tr>
+<tr><td>Ethernet isolation transformers (or integrated magjack)</td><td>1:1 ratio, 1500 Vrms isolation</td><td>5</td></tr>
+<tr><td>Bob-Smith center-tap resistors</td><td>75Ω</td><td>2 per port (10 total)</td></tr>
+<tr><td>Bob-Smith common-mode capacitor</td><td>~1.5 nF (1000–2200 pF range)</td><td>1 per port (5 total)</td></tr>
+<tr><td>Bus pull-ups (MDIO/SPI/I²C)</td><td>2.2–10 kΩ</td><td>as needed per interface used</td></tr>
+<tr><td>Strap-override resistors</td><td>4.7–10 kΩ</td><td>only where default ≠ desired</td></tr>
+<tr><td>Decoupling caps (all VDD pins)</td><td>0.1 µF</td><td>1 per power pin</td></tr>
+<tr><td>Bulk caps per rail</td><td>1–10 µF</td><td>~1 per 2–3 power pins</td></tr>
+<tr><td>Ferrite beads (digital/analog rail isolation)</td><td>per datasheet figure</td><td>as needed</td></tr>
+</table>
+
+<footer>
+Reference: Microchip/Micrel KSZ8895MQX/RQX/FQX/ML datasheet (Rev 1.3) — pin descriptions, power architecture (Fig. 8/9), ISET current-setting resistor, on-chip termination, and strap-in option tables. Reset RC pairing cross-checked against the same-family KSZ8794 reference reset circuit documented in the Linux kernel DSA driver. Values marked "typical" or "commonly used" should be confirmed against the exact datasheet revision for your part before finalizing a layout — always verify against the current Microchip datasheet before tape-out.
+</footer>
+
+</div>
+</body>
+</html>

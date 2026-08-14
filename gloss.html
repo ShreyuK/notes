@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KSZ8895MLUB-ND — Full Explainer & Terminology Glossary</title>
+<style>
+  :root{
+    --bg: #0c0d10;
+    --panel: #14161b;
+    --panel2: #191c22;
+    --border: #262a33;
+    --text: #d7dbe2;
+    --dim: #8b93a3;
+    --steel: #7fa3c4;
+    --sage: #8faa8a;
+    --violet: #a596c7;
+    --amber: #c2a76b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family: "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    line-height:1.65;
+    margin:0;
+    padding:0 0 60px 0;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:36px 24px;}
+  h1{
+    color:var(--steel);
+    font-size:1.9em;
+    margin-bottom:4px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:14px;
+  }
+  .subtitle{color:var(--dim);font-size:0.95em;margin-bottom:30px;}
+  h2{
+    color:var(--sage);
+    font-size:1.3em;
+    margin-top:44px;
+    margin-bottom:12px;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--border);
+  }
+  h3{
+    color:var(--violet);
+    font-size:1.08em;
+    margin-top:26px;
+    margin-bottom:8px;
+  }
+  p{margin:10px 0;color:var(--text);}
+  .dim{color:var(--dim);}
+  code, .val{
+    font-family: "SF Mono", Consolas, monospace;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--amber);
+    padding:1px 6px;
+    border-radius:4px;
+    font-size:0.92em;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px 22px;
+    margin:16px 0;
+  }
+  .why{
+    border-left:3px solid var(--sage);
+    background:var(--panel2);
+    padding:10px 16px;
+    margin:12px 0;
+    border-radius:0 6px 6px 0;
+  }
+  .why b{color:var(--sage);}
+  .analogy{
+    border-left:3px solid var(--violet);
+    background:var(--panel2);
+    padding:10px 16px;
+    margin:12px 0;
+    border-radius:0 6px 6px 0;
+  }
+  .analogy b{color:var(--violet);}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin:14px 0;
+    font-size:0.93em;
+  }
+  th{
+    background:var(--panel2);
+    color:var(--steel);
+    text-align:left;
+    padding:8px 10px;
+    border:1px solid var(--border);
+  }
+  td{
+    padding:8px 10px;
+    border:1px solid var(--border);
+    color:var(--text);
+    vertical-align:top;
+  }
+  tr:nth-child(even) td{background:#101216;}
+  ul, ol{padding-left:22px;}
+  li{margin:6px 0;}
+  .glossterm{color:var(--amber);font-weight:600;}
+  footer{color:var(--dim);font-size:0.85em;margin-top:50px;border-top:1px solid var(--border);padding-top:16px;}
+  svg{background:var(--panel2);border:1px solid var(--border);border-radius:8px;display:block;margin:14px auto;}
+  .box{fill:#1b1e25;stroke:var(--violet);stroke-width:1.3;}
+  .box2{fill:#1b1e25;stroke:var(--steel);stroke-width:1.3;}
+  .wire{stroke:#5c6472;stroke-width:1.3;fill:none;}
+  .lbl{fill:var(--text);font-size:12px;font-family:"Segoe UI",sans-serif;}
+  .dlbl{fill:var(--dim);font-size:10px;font-family:monospace;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>KSZ8895MLUB-ND — Full Explainer</h1>
+<div class="subtitle">What this chip is, what it does, and what every term in its datasheet actually means — written assuming zero prior networking-hardware background.</div>
+
+<h2>1. The big picture: what problem does this chip solve?</h2>
+<p>
+Imagine you have several devices — a router's CPU, a Wi-Fi access point radio, a couple of Ethernet jacks on the back of a box — and you need them all to be able to talk to each other and to the outside world over Ethernet. You <i>could</i> use five separate single-port Ethernet chips and wire them together with glue logic, but that's expensive, uses more board space, and you'd have to build all the "which port does this packet go to" logic yourself.
+</p>
+<p>
+The KSZ8895 is a single chip that <b>is</b> a 5-port Ethernet switch — the same functional block you'd find inside a cheap 5-port desktop switch you can buy for $10, except here it's one IC you solder onto your own board, with a few pins that let a host microcontroller peek inside and reconfigure it, or none at all if you just want it to behave like a plain unmanaged switch out of the box.
+</p>
+<div class="analogy">
+<b>Analogy:</b> Think of it as a tiny automated mail-sorting room. Five doors (ports) each connect to a different building (device). A letter (packet) comes in one door; the sorting room reads the address on the envelope and, without a human involved, slides it out the correct door to reach its destination — and if it doesn't yet know which door leads to that address, it briefly shouts the letter out every door and remembers whichever door the reply came back through, for next time. That memory is the "MAC address table," and the automatic address-learning is the core job of every Ethernet switch, including this one.
+</div>
+
+<h2>2. What's physically inside the chip</h2>
+<svg viewBox="0 0 760 360" width="100%" height="360">
+  <rect x="240" y="20" width="280" height="200" rx="8" class="box"/>
+  <text x="380" y="45" text-anchor="middle" class="lbl" fill="#a596c7">Switch fabric / lookup engine</text>
+  <text x="380" y="65" text-anchor="middle" class="dlbl">64KB frame buffer · 1K MAC table</text>
+
+  <!-- 5 MAC/PHY pairs -->
+  <g id="port1">
+    <rect x="30" y="30" width="90" height="34" rx="4" class="box2"/>
+    <text x="75" y="51" text-anchor="middle" class="lbl">MAC 1</text>
+    <rect x="130" y="30" width="90" height="34" rx="4" class="box2"/>
+    <text x="175" y="51" text-anchor="middle" class="lbl">PHY 1</text>
+    <line x1="220" y1="47" x2="260" y2="65" class="wire"/>
+    <line x1="120" y1="47" x2="130" y2="47" class="wire"/>
+    <text x="230" y="20" class="dlbl">→ RJ45 Port 1</text>
+  </g>
+  <g id="port2">
+    <rect x="30" y="80" width="90" height="34" rx="4" class="box2"/>
+    <text x="75" y="101" text-anchor="middle" class="lbl">MAC 2</text>
+    <rect x="130" y="80" width="90" height="34" rx="4" class="box2"/>
+    <text x="175" y="101" text-anchor="middle" class="lbl">PHY 2</text>
+    <line x1="220" y1="97" x2="260" y2="95" class="wire"/>
+    <line x1="120" y1="97" x2="130" y2="97" class="wire"/>
+  </g>
+  <g id="port3">
+    <rect x="30" y="130" width="90" height="34" rx="4" class="box2"/>
+    <text x="75" y="151" text-anchor="middle" class="lbl">MAC 3</text>
+    <rect x="130" y="130" width="90" height="34" rx="4" class="box2"/>
+    <text x="175" y="151" text-anchor="middle" class="lbl">PHY 3</text>
+    <line x1="220" y1="147" x2="260" y2="125" class="wire"/>
+    <line x1="120" y1="147" x2="130" y2="147" class="wire"/>
+  </g>
+  <g id="port4">
+    <rect x="30" y="180" width="90" height="34" rx="4" class="box2"/>
+    <text x="75" y="201" text-anchor="middle" class="lbl">MAC 4</text>
+    <rect x="130" y="180" width="90" height="34" rx="4" class="box2"/>
+    <text x="175" y="201" text-anchor="middle" class="lbl">PHY 4</text>
+    <line x1="220" y1="197" x2="260" y2="155" class="wire"/>
+    <line x1="120" y1="197" x2="130" y2="197" class="wire"/>
+  </g>
+  <g id="port5">
+    <rect x="30" y="230" width="90" height="34" rx="4" class="box2"/>
+    <text x="75" y="251" text-anchor="middle" class="lbl">MAC 5</text>
+    <rect x="130" y="230" width="90" height="34" rx="4" class="box2"/>
+    <text x="175" y="251" text-anchor="middle" class="lbl">PHY 5</text>
+    <line x1="220" y1="247" x2="260" y2="185" class="wire"/>
+    <line x1="120" y1="247" x2="130" y2="247" class="wire"/>
+    <text x="30" y="280" class="dlbl">Port 5 can also be broken out over MII/RMII</text>
+    <text x="30" y="292" class="dlbl">to an external CPU instead of a cable port</text>
+  </g>
+
+  <!-- CPU / mgmt -->
+  <rect x="600" y="30" width="130" height="50" rx="6" class="box2"/>
+  <text x="665" y="60" text-anchor="middle" class="lbl">Host CPU</text>
+  <line x1="600" y1="55" x2="520" y2="55" class="wire"/>
+  <text x="530" y="45" class="dlbl">SPI / I²C / MDIO</text>
+
+  <rect x="600" y="100" width="130" height="50" rx="6" class="box2"/>
+  <text x="665" y="130" text-anchor="middle" class="lbl">EEPROM</text>
+  <line x1="600" y1="125" x2="520" y2="125" class="wire"/>
+  <text x="530" y="115" class="dlbl">unmanaged config</text>
+
+</svg>
+
+<p>Reading the diagram: each of the five external ports has its own <span class="glossterm">MAC</span> and its own <span class="glossterm">PHY</span>, and all five feed into one shared <span class="glossterm">switch fabric</span> with one shared memory pool. A host CPU is <i>optional</i> — it talks to the chip over SPI, I²C, or MDIO if present, purely to read status or change configuration; it does not sit in the data path. If there's no CPU, an EEPROM (or just the chip's built-in defaults plus pin-strapping) configures it once at power-up and then it runs completely autonomously.</p>
+
+<h2>3. Managed vs. unmanaged — the chip's two personalities</h2>
+<table>
+<tr><th>Mode</th><th>What it means</th><th>When you'd use it</th></tr>
+<tr><td><b>Unmanaged</b></td><td>No CPU talks to the switch at runtime. Behavior comes from internal defaults, optionally overridden by an EEPROM read once at boot, or by resistors on strap pins.</td><td>Simple "just be a 5-port switch" designs — e.g. adding extra Ethernet ports to a device with no spare CPU cycles to manage a switch chip.</td></tr>
+<tr><td><b>Managed</b></td><td>A host CPU has live register access over SPI or MDC/MDIO and can read statistics, change VLANs, adjust QoS, monitor link status, and reconfigure anything at runtime.</td><td>Routers/gateways where you want VLAN segmentation, QoS prioritization for VoIP, port mirroring for diagnostics, or dynamic control.</td></tr>
+</table>
+
+<h2>4. Full terminology glossary</h2>
+
+<h3>Layer 2 / Ethernet basics</h3>
+<table>
+<tr><th>Term</th><th>Plain-English meaning</th></tr>
+<tr><td class="glossterm">MAC (Media Access Controller)</td><td>The digital logic block that handles Ethernet framing — building/parsing packet headers, timing (inter-packet gaps), collision handling, and flow control. It speaks a standardized digital interface (MII/RMII) on one side and hands finished frames to the switch fabric on the other. Not to be confused with "MAC address" (see below) — same acronym, different but related concept.</td></tr>
+<tr><td class="glossterm">MAC address</td><td>A 48-bit hardware address burned into (or configured on) every Ethernet device, used to identify who a packet is from and who it's going to at Layer 2. The switch's whole job is learning which port each MAC address lives behind.</td></tr>
+<tr><td class="glossterm">PHY (Physical layer transceiver)</td><td>The analog front-end that actually drives and receives the electrical signal on the copper cable — line drivers, equalizers, clock recovery, the works. It converts between the MAC's digital bits and the real analog waveform on the wire.</td></tr>
+<tr><td class="glossterm">Layer 2 / Layer 2 managed switch</td><td>"Layer 2" refers to the OSI networking model's data-link layer — the layer that deals with MAC addresses and physical framing, as opposed to Layer 3 (IP routing) or Layer 4 (TCP/UDP ports). A "Layer 2 managed switch" makes forwarding decisions based on MAC addresses, and exposes configuration/monitoring to a manager (CPU).</td></tr>
+<tr><td class="glossterm">10BASE-T / 100BASE-TX</td><td>IEEE standard names for 10 Mbps and 100 Mbps Ethernet over twisted-pair copper cable. "100BASE-FX" (mentioned for one variant of this chip family) is the same speed but over fiber optic cable instead of copper.</td></tr>
+<tr><td class="glossterm">Full duplex / half duplex</td><td>Full duplex = can send and receive simultaneously (like a phone call). Half duplex = only one direction at a time (like a walkie-talkie) — a legacy mode, relevant mainly for old hubs or forced-speed links.</td></tr>
+<tr><td class="glossterm">Store-and-forward</td><td>The switch's forwarding strategy: it fully receives an entire frame into its internal buffer, checks it for errors, and only then transmits it out the destination port — as opposed to "cut-through" switching which starts forwarding before the frame is fully received. Store-and-forward is slightly higher latency but never forwards a corrupted frame.</td></tr>
+<tr><td class="glossterm">Non-blocking switch fabric</td><td>Means the internal path connecting any port to any other port has enough bandwidth that traffic on one port pair doesn't have to wait for or steal bandwidth from a different port pair — all ports can be busy simultaneously without starving each other.</td></tr>
+</table>
+
+<h3>Wiring / signaling terms</h3>
+<table>
+<tr><th>Term</th><th>Plain-English meaning</th></tr>
+<tr><td class="glossterm">MDI / MDI-X</td><td>Two wiring conventions for which pins on an RJ45 jack are "transmit" vs "receive." A network card is normally MDI; a hub/switch port is normally MDI-X — this is why old-school networking needed special "crossover" cables to connect two switches together (matching TX-to-RX), while a "straight-through" cable connects an MDI device to an MDI-X device.</td></tr>
+<tr><td class="glossterm">Auto MDI/MDI-X</td><td>A feature that automatically senses and swaps which pins are transmit vs receive, so any cable (straight or crossover) works regardless of what's plugged into the other end. This chip supports it on every port, enabled by default.</td></tr>
+<tr><td class="glossterm">Auto-negotiation</td><td>The handshake process where two linked Ethernet devices advertise their capabilities (10/100 Mbps, half/full duplex) to each other and automatically agree on the fastest mode both sides support.</td></tr>
+<tr><td class="glossterm">Isolation transformer / magnetics</td><td>A transformer placed between the PHY and the RJ45 jack that electrically isolates your board's ground from the cable — required by the Ethernet spec for safety and noise immunity, since a cable might run to a device with a different ground reference (even a different building).</td></tr>
+<tr><td class="glossterm">MLT-3 encoding</td><td>The specific 3-level (not simple on/off) electrical signaling scheme used by 100BASE-TX to keep the signal's frequency spectrum narrower and reduce radiated EMI compared to simpler encodings.</td></tr>
+<tr><td class="glossterm">LinkMD (cable diagnostics)</td><td>A built-in feature using <span class="glossterm">TDR</span> (time-domain reflectometry — sending a pulse down the cable and timing its reflection) to detect and roughly locate cable faults like an open or short circuit, without any special test equipment.</td></tr>
+</table>
+
+<h3>Digital interfaces (how the switch talks to a CPU / other chips)</h3>
+<table>
+<tr><th>Term</th><th>Plain-English meaning</th></tr>
+<tr><td class="glossterm">MII (Media Independent Interface)</td><td>A standardized parallel digital bus (4 data bits + control signals, clocked) between a MAC and a PHY. "Media independent" means the same interface works whether the physical media is copper, fiber, 10 Mbps, or 100 Mbps — the MAC doesn't need to know or care.</td></tr>
+<tr><td class="glossterm">RMII (Reduced MII)</td><td>A pin-count-reduced version of MII (2 data bits instead of 4, single shared clock) — same job, fewer wires, useful when you're pin-constrained on a CPU/FPGA.</td></tr>
+<tr><td class="glossterm">SNI (Serial Network Interface)</td><td>An even simpler, single-bit-wide legacy interface for connecting to older network-layer processing chips.</td></tr>
+<tr><td class="glossterm">SPI</td><td>Serial Peripheral Interface — a common 4-wire synchronous serial bus (clock, data in, data out, chip-select) used here for a host CPU to read/write the switch's internal configuration registers.</td></tr>
+<tr><td class="glossterm">I²C</td><td>A 2-wire synchronous serial bus (clock + bidirectional data). Here the chip acts as an I²C <i>master</i> specifically to read its configuration from an external EEPROM at boot — not for a host CPU to control it live (that's what SPI/MDIO are for).</td></tr>
+<tr><td class="glossterm">MDC / MDIO (MIIM)</td><td>"Management Data Clock / Management Data I/O" — a simple 2-wire bus standardized for reading and writing PHY registers (things like link status, speed, duplex). Widely supported by external MAC chips as the conventional way to monitor an external PHY.</td></tr>
+<tr><td class="glossterm">SMI (Serial Management Interface)</td><td>A superset of MDC/MDIO used here to access <i>all</i> the switch's registers (not just PHY registers), for hosts that only have an MDIO-style bus available rather than SPI.</td></tr>
+<tr><td class="glossterm">Strap pin / pin strapping</td><td>A pin that is read once at reset to decide a configuration option (based on whether it's pulled high or low by an external resistor), and then afterward switches to its "normal" function (often an LED driver). It's how you configure a chip that has no CPU talking to it.</td></tr>
+</table>
+
+<h3>Switching / networking features</h3>
+<table>
+<tr><th>Term</th><th>Plain-English meaning</th></tr>
+<tr><td class="glossterm">VLAN (Virtual LAN)</td><td>A way to logically split one physical switch into multiple isolated virtual networks — devices in different VLANs can't see each other's traffic even though they're plugged into the same physical switch, as if they were on separate physical switches.</td></tr>
+<tr><td class="glossterm">802.1Q tag</td><td>The specific IEEE standard for how a VLAN ID gets embedded into an Ethernet frame's header, so switches along the path know which VLAN a frame belongs to.</td></tr>
+<tr><td class="glossterm">QoS (Quality of Service)</td><td>Mechanisms for treating some traffic as higher priority than other traffic — e.g. making sure a VoIP phone call's packets get sent before a large file transfer's packets, so the call doesn't stutter.</td></tr>
+<tr><td class="glossterm">802.1p priority</td><td>A 3-bit priority field that can ride inside the 802.1Q VLAN tag, letting devices mark frames with a priority level (0–7) that switches use for QoS queuing decisions.</td></tr>
+<tr><td class="glossterm">DiffServ / DSCP</td><td>A Layer-3 (IP header) based alternative way of marking packet priority, using bits in the IP header's "Type of Service" field — this switch can classify QoS priority based on either the Layer-2 (802.1p) or Layer-3 (DSCP) marking.</td></tr>
+<tr><td class="glossterm">Rate limiting</td><td>Capping how much bandwidth a given port (or priority queue) is allowed to use, to prevent one busy device from starving the rest of the network.</td></tr>
+<tr><td class="glossterm">Broadcast storm protection</td><td>A safety limit on how many broadcast (sent-to-everyone) packets per second are allowed through, since broadcast traffic gets copied out every port and a runaway flood can consume all switch bandwidth.</td></tr>
+<tr><td class="glossterm">IGMP snooping</td><td>The switch "listens in" on IGMP (Internet Group Management Protocol) messages — used for IP multicast (one sender, many specific receivers, e.g. IPTV) — so it only forwards multicast traffic out the ports that actually have a subscribed receiver, instead of blasting it out every port like a broadcast.</td></tr>
+<tr><td class="glossterm">Port mirroring</td><td>A diagnostic feature that copies all traffic seen on one port out to another port too, so you can plug a packet-capture tool into the mirror port and see everything happening on the network without interrupting it.</td></tr>
+<tr><td class="glossterm">Spanning Tree Protocol (STP) / Rapid STP (RSTP)</td><td>A protocol that prevents network loops (which would otherwise cause traffic to circulate forever and melt down the network) when switches are cabled together in a way that creates redundant paths — it automatically finds and "blocks" the redundant paths while keeping a backup ready if the main path fails. RSTP is a faster-converging revision of the original STP standard.</td></tr>
+<tr><td class="glossterm">MIB counters (Management Information Base)</td><td>Standardized statistics counters (packets sent/received, errors, collisions, etc.) per port, readable by a host CPU for monitoring and diagnostics — the same kind of counters your router's admin page uses to show "bytes sent/received."</td></tr>
+<tr><td class="glossterm">Flow control (802.3x / PAUSE frames)</td><td>A mechanism where a receiver that's getting overwhelmed sends a special "PAUSE" frame asking the sender to briefly stop transmitting, preventing buffer overflow and dropped packets.</td></tr>
+</table>
+
+<h3>Power / electrical terms</h3>
+<table>
+<tr><th>Term</th><th>Plain-English meaning</th></tr>
+<tr><td class="glossterm">LDO (Low-Dropout regulator)</td><td>A type of linear voltage regulator that can output a voltage very close to its input voltage (small "dropout"). Simpler and quieter (less electrical noise) than a switching regulator, but less power-efficient for large voltage drops.</td></tr>
+<tr><td class="glossterm">Decoupling capacitor</td><td>A small capacitor placed right next to a chip's power pin to locally supply sudden bursts of current the chip needs (as its internal transistors switch) faster than the main power supply/traces could respond, and to shunt high-frequency noise to ground.</td></tr>
+<tr><td class="glossterm">Ferrite bead</td><td>A passive component that looks like a resistor but behaves like it has very low resistance at DC/low frequency and rising resistance at high frequency — used to block high-frequency noise from traveling between two parts of a circuit (e.g. digital noise leaking into an analog supply) while still passing DC power through cleanly.</td></tr>
+<tr><td class="glossterm">Reset (RST_N, active-low)</td><td>A signal that forces the chip into a known, defined starting state. "Active-low" (the "_N" suffix, or sometimes a bar over the name) means the reset is asserted when the pin is held <i>low</i>, and the chip runs normally when it's <i>high</i>.</td></tr>
+<tr><td class="glossterm">Pull-up / pull-down resistor</td><td>A resistor connecting a pin to power (pull-up) or ground (pull-down) so the pin has a defined logic level when nothing else is actively driving it — used both for strap-pin configuration and for open-drain buses like I²C/MDIO that need something to pull the line back high.</td></tr>
+</table>
+
+<h3>Package / part-numbering terms</h3>
+<table>
+<tr><th>Term</th><th>Plain-English meaning</th></tr>
+<tr><td class="glossterm">LQFP (Low-profile Quad Flat Package)</td><td>A common surface-mount IC package shape — a thin square body with pins ("legs") along all four edges. This chip is a 128-pin LQFP.</td></tr>
+<tr><td class="glossterm">-ND suffix (e.g. "KSZ8895MLUB-ND")</td><td>Not part of the actual chip's part number — this is Digi-Key's own internal ordering/stock-keeping suffix, tacked onto the manufacturer part number for their catalog. The real chip is simply the <span class="val">KSZ8895ML</span> (or "MLU"/"MLUB" depending on silicon revision/temperature grade).</td></tr>
+<tr><td class="glossterm">Silicon revision (e.g. "B2 silicon")</td><td>Chip manufacturers periodically revise the internal design ("silicon") of a part to fix bugs or add small features while keeping the same external part number and pinout. The "B2" revision of this chip, for example, added the LinkMD feature and improved ESD rating — worth checking which revision your specific part is if a datasheet feature seems missing in practice.</td></tr>
+</table>
+
+<h2>5. How it all fits together: a packet's journey</h2>
+<ol>
+<li>An Ethernet cable carries an analog electrical signal into, say, Port 2's RJ45 jack, through the isolation transformer, into <b>PHY 2</b>.</li>
+<li>PHY 2 does the analog-to-digital heavy lifting (equalization, clock recovery, decoding the MLT-3/Manchester signal) and hands clean digital bits to <b>MAC 2</b>.</li>
+<li>MAC 2 checks the frame for errors, strips off the low-level framing, and passes the payload into the shared <b>switch fabric / frame buffer</b>.</li>
+<li>The <b>lookup engine</b> reads the destination MAC address and checks its internal address table: "which port has this happened to be plugged into before?" If found, it forwards only to that port. If not, it floods out every port except the one it came in on (and learns the answer once a reply comes back).</li>
+<li>Along the way, any configured <b>VLAN</b>, <b>QoS</b>, <b>rate limiting</b>, or <b>port mirroring</b> rules are applied.</li>
+<li>The frame is handed to the destination port's <b>MAC</b>, which re-frames it, and that port's <b>PHY</b> converts it back into an analog signal for the outgoing cable.</li>
+<li>Separately and asynchronously, if a host CPU is present, it can be reading <b>MIB counters</b>, adjusting registers over <b>SPI/MDIO</b>, or reacting to a link-change <b>interrupt</b> — none of this is in the way of the actual packet forwarding described above.</li>
+</ol>
+
+<footer>
+Reference: Microchip/Micrel KSZ8895MQX/RQX/FQX/ML datasheet (Rev 1.3) — general description, feature list, functional overview, and pin descriptions. This document is a plain-language companion to that datasheet, not a replacement for it — always check the current datasheet for exact register bits and electrical specs before finalizing a design.
+</footer>
+
+</div>
+</body>
+</html>

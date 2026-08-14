@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KSZ8895MLUB — Reference Design Notes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap');
+
+  :root{
+    --board:#0b241a;
+    --board-2:#0f2e21;
+    --panel:#123527;
+    --panel-line:#1e4c37;
+    --copper:#c9884f;
+    --copper-bright:#e3a869;
+    --silver:#cfd8d2;
+    --text:#e9efe9;
+    --muted:#8fac9c;
+    --muted-2:#6b8a79;
+    --solder:#dcd0a8;
+    --warn:#e0a15a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --cond: 'IBM Plex Sans Condensed', sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+
+  html{scroll-behavior:smooth;}
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 15% 8%, rgba(201,136,79,0.05), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(30,76,55,0.35), transparent 45%),
+      var(--board);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* faint PCB grid texture */
+  .grid-overlay{
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      linear-gradient(rgba(207,216,210,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(207,216,210,0.035) 1px, transparent 1px);
+    background-size:28px 28px;
+    mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 75%);
+  }
+
+  .wrap{max-width:900px; margin:0 auto; padding:0 28px 120px; position:relative; z-index:1;}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    padding:64px 0 40px;
+    border-bottom:1px solid var(--panel-line);
+    margin-bottom:56px;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12.5px;
+    letter-spacing:.14em;
+    color:var(--copper-bright);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:18px; height:1px; background:var(--copper);
+    display:inline-block;
+  }
+  h1{
+    font-family:var(--cond);
+    font-weight:700;
+    font-size:clamp(34px,5.4vw,54px);
+    line-height:1.05;
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+  h1 .part{color:var(--copper-bright);}
+  .subtitle{
+    font-size:16.5px;
+    color:var(--muted);
+    max-width:560px;
+    margin:0 0 32px;
+  }
+
+  .chip-diagram{
+    display:flex;
+    justify-content:center;
+    margin:36px 0 8px;
+  }
+  .chip-diagram svg{width:100%; max-width:520px; height:auto;}
+
+  .quickfacts{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:1px;
+    background:var(--panel-line);
+    border:1px solid var(--panel-line);
+    margin-top:32px;
+    font-family:var(--mono);
+  }
+  .quickfacts div{
+    background:var(--board-2);
+    padding:14px 12px;
+  }
+  .quickfacts .label{
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--muted-2);
+    margin-bottom:6px;
+  }
+  .quickfacts .value{
+    font-size:14px;
+    color:var(--solder);
+    font-weight:500;
+  }
+
+  /* ---------- SECTION STRUCTURE ---------- */
+  section{margin-bottom:56px; position:relative;}
+
+  .designator{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--copper);
+    letter-spacing:.06em;
+    margin-bottom:8px;
+    display:block;
+  }
+
+  h2{
+    font-family:var(--cond);
+    font-size:26px;
+    font-weight:700;
+    margin:0 0 18px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--panel-line);
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+  }
+  h2 .trace{
+    flex:1;
+    height:1px;
+    background:linear-gradient(90deg, var(--panel-line), transparent);
+    margin-left:8px;
+  }
+
+  h3{
+    font-family:var(--sans);
+    font-size:16px;
+    font-weight:600;
+    color:var(--copper-bright);
+    margin:26px 0 8px;
+  }
+
+  p{margin:0 0 14px; color:var(--text); font-size:15.5px;}
+  .muted{color:var(--muted);}
+
+  code, .pin, .term{
+    font-family:var(--mono);
+    font-size:0.92em;
+    color:var(--solder);
+    background:rgba(220,208,168,0.08);
+    padding:1px 5px;
+    border-radius:3px;
+    border:1px solid rgba(220,208,168,0.15);
+  }
+
+  ul, ol{margin:0 0 14px; padding-left:22px;}
+  li{margin-bottom:8px; font-size:15.5px;}
+  li::marker{color:var(--copper);}
+
+  .callout{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-left:3px solid var(--copper);
+    padding:16px 18px;
+    margin:18px 0;
+    font-size:14.5px;
+    border-radius:2px;
+  }
+  .callout .cal-label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--copper-bright);
+    margin-bottom:6px;
+    display:block;
+  }
+
+  /* glossary grid */
+  .glossary{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px 24px;
+  }
+  @media(max-width:640px){.glossary{grid-template-columns:1fr;}}
+  .term-card{
+    padding:14px 0;
+    border-top:1px solid var(--panel-line);
+  }
+  .term-card .t{
+    font-family:var(--mono);
+    color:var(--copper-bright);
+    font-size:13.5px;
+    font-weight:600;
+    margin-bottom:5px;
+    display:block;
+  }
+  .term-card .d{font-size:14px; color:var(--muted); margin:0;}
+
+  /* component table */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin:14px 0 8px;
+    font-size:14px;
+  }
+  thead th{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--muted-2);
+    text-align:left;
+    padding:8px 10px;
+    border-bottom:1px solid var(--panel-line);
+  }
+  tbody td{
+    padding:10px 10px;
+    border-bottom:1px solid rgba(30,76,55,0.6);
+    vertical-align:top;
+    color:var(--text);
+  }
+  tbody tr:hover{background:rgba(201,136,79,0.04);}
+  td.ref{
+    font-family:var(--mono);
+    color:var(--copper-bright);
+    white-space:nowrap;
+    font-weight:600;
+  }
+  td.val{font-family:var(--mono); color:var(--solder); white-space:nowrap;}
+
+  /* interactive: collapsible "why" */
+  details{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:3px;
+    margin:10px 0;
+    padding:0;
+    overflow:hidden;
+  }
+  summary{
+    cursor:pointer;
+    padding:12px 16px;
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:14.5px;
+    color:var(--copper-bright);
+    list-style:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  summary::-webkit-details-marker{display:none;}
+  summary::after{
+    content:"+";
+    font-family:var(--mono);
+    color:var(--copper);
+    font-size:18px;
+    transition:transform .2s ease;
+  }
+  details[open] summary::after{transform:rotate(45deg);}
+  details .body{
+    padding:0 16px 16px;
+    font-size:14.5px;
+    color:var(--muted);
+    border-top:1px solid var(--panel-line);
+    padding-top:12px;
+  }
+
+  /* system map */
+  .sysmap{margin:20px 0 8px;}
+  .sysmap svg{width:100%; height:auto;}
+
+  footer{
+    margin-top:80px;
+    padding-top:24px;
+    border-top:1px solid var(--panel-line);
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted-2);
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+
+  ::selection{background:rgba(201,136,79,0.35); color:#fff;}
+</style>
+</head>
+<body>
+<div class="grid-overlay"></div>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Component reference &middot; Ethernet switch IC</div>
+    <h1>KSZ<span class="part">8895MLUB</span><br>Design Notes</h1>
+    <p class="subtitle">A 5-port managed Ethernet switch on one chip, and the supporting circuitry it needs to actually work on a board — explained from first principles.</p>
+
+    <div class="chip-diagram">
+      <svg viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg">
+        <!-- QFP package outline -->
+        <rect x="140" y="90" width="240" height="160" rx="4" fill="#0f2e21" stroke="#c9884f" stroke-width="1.5"/>
+        <circle cx="158" cy="108" r="4" fill="#c9884f"/>
+        <text x="260" y="150" text-anchor="middle" font-family="IBM Plex Mono" font-size="15" fill="#e3a869" font-weight="600">KSZ8895</text>
+        <text x="260" y="172" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#8fac9c">MLUB — LQFP-128</text>
+        <text x="260" y="196" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#6b8a79">5x MAC + 5x PHY</text>
+        <text x="260" y="212" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#6b8a79">switch fabric</text>
+
+        <!-- pins top -->
+        <g stroke="#cfd8d2" stroke-width="1.5">
+          <line x1="165" y1="90" x2="165" y2="72"/><line x1="185" y1="90" x2="185" y2="72"/>
+          <line x1="205" y1="90" x2="205" y2="72"/><line x1="225" y1="90" x2="225" y2="72"/>
+          <line x1="245" y1="90" x2="245" y2="72"/><line x1="265" y1="90" x2="265" y2="72"/>
+          <line x1="285" y1="90" x2="285" y2="72"/><line x1="305" y1="90" x2="305" y2="72"/>
+          <line x1="325" y1="90" x2="325" y2="72"/><line x1="345" y1="90" x2="345" y2="72"/>
+        </g>
+        <!-- pins bottom -->
+        <g stroke="#cfd8d2" stroke-width="1.5">
+          <line x1="165" y1="250" x2="165" y2="268"/><line x1="185" y1="250" x2="185" y2="268"/>
+          <line x1="205" y1="250" x2="205" y2="268"/><line x1="225" y1="250" x2="225" y2="268"/>
+          <line x1="245" y1="250" x2="245" y2="268"/><line x1="265" y1="250" x2="265" y2="268"/>
+          <line x1="285" y1="250" x2="285" y2="268"/><line x1="305" y1="250" x2="305" y2="268"/>
+          <line x1="325" y1="250" x2="325" y2="268"/><line x1="345" y1="250" x2="345" y2="268"/>
+        </g>
+        <!-- pins left -->
+        <g stroke="#cfd8d2" stroke-width="1.5">
+          <line x1="140" y1="112" x2="120" y2="112"/><line x1="140" y1="132" x2="120" y2="132"/>
+          <line x1="140" y1="152" x2="120" y2="152"/><line x1="140" y1="172" x2="120" y2="172"/>
+          <line x1="140" y1="192" x2="120" y2="192"/><line x1="140" y1="212" x2="120" y2="212"/>
+          <line x1="140" y1="232" x2="120" y2="232"/>
+        </g>
+        <!-- pins right -->
+        <g stroke="#cfd8d2" stroke-width="1.5">
+          <line x1="380" y1="112" x2="400" y2="112"/><line x1="380" y1="132" x2="400" y2="132"/>
+          <line x1="380" y1="152" x2="400" y2="152"/><line x1="380" y1="172" x2="400" y2="172"/>
+          <line x1="380" y1="192" x2="400" y2="192"/><line x1="380" y1="212" x2="400" y2="212"/>
+          <line x1="380" y1="232" x2="400" y2="232"/>
+        </g>
+
+        <!-- labels for the four copper ports + port5 -->
+        <text x="112" y="115" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#8fac9c">P1</text>
+        <text x="112" y="155" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#8fac9c">P2</text>
+        <text x="112" y="195" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#8fac9c">P3</text>
+        <text x="112" y="235" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#8fac9c">P4</text>
+        <text x="408" y="175" text-anchor="start" font-family="IBM Plex Mono" font-size="10" fill="#e3a869">P5 → MII/RMII to host</text>
+
+        <text x="175" y="64" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#6b8a79">X1/X2</text>
+        <text x="300" y="64" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#6b8a79">VDD</text>
+        <text x="220" y="286" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#6b8a79">RST_N</text>
+        <text x="320" y="286" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#6b8a79">SPI/I2C/MDIO</text>
+      </svg>
+    </div>
+
+    <div class="quickfacts">
+      <div><div class="label">Function</div><div class="value">Managed L2 switch</div></div>
+      <div><div class="label">Ports</div><div class="value">5 (4 copper + 1 flex)</div></div>
+      <div><div class="label">Speed</div><div class="value">10/100 Mbps</div></div>
+      <div><div class="label">Package</div><div class="value">LQFP&#8209;128</div></div>
+    </div>
+  </div>
+
+  <!-- ============ WHAT IT IS ============ -->
+  <section id="what">
+    <span class="designator">U1 &mdash; the chip itself</span>
+    <h2>What the KSZ8895 actually does<span class="trace"></span></h2>
+    <p>It's a <strong>Layer 2 managed Ethernet switch</strong> on a single die: not a dumb repeater, but a chip that looks at each incoming packet's destination address and intelligently forwards it only to the port that needs it. Internally it contains:</p>
+    <ul>
+      <li><strong>5 MACs</strong> (Media Access Controllers) &mdash; digital logic that handles Ethernet framing, addressing, and collision/flow handling.</li>
+      <li><strong>5 PHYs</strong> (Physical layer transceivers) &mdash; analog front-ends that drive and receive the actual electrical signals on copper cable.</li>
+      <li>A <strong>non-blocking switch fabric</strong> with a 1K-entry MAC address table, deciding packet-by-packet which port(s) to forward to.</li>
+    </ul>
+    <p><strong>4 of the 5 ports</strong> are typically normal copper RJ45 Ethernet ports, ready to plug a cable into. <strong>Port 5 is different</strong> &mdash; instead of a cable, it can connect chip-to-chip to a host processor, FPGA, or SoC via <span class="pin">MII</span> or <span class="pin">RMII</span>, so that host can inject and receive packets, and configure the switch's internal registers.</p>
+    <div class="callout">
+      <span class="cal-label">Managed vs. unmanaged</span>
+      "Managed" means the switch exposes configuration and monitoring &mdash; VLANs, port mirroring, rate limiting, spanning tree &mdash; over SPI, I2C, or MDC/MDIO. It can also be run in a self-contained "unmanaged" mode using strap pins or an EEPROM, with no host CPU needed at all.
+    </div>
+  </section>
+
+  <!-- ============ GLOSSARY ============ -->
+  <section id="glossary">
+    <span class="designator">REF &mdash; terminology</span>
+    <h2>Terms you'll keep running into<span class="trace"></span></h2>
+    <div class="glossary">
+      <div class="term-card"><span class="t">MAC</span><p class="d">Digital logic that frames Ethernet packets, handles addressing and collisions. The "brain" of a port.</p></div>
+      <div class="term-card"><span class="t">PHY</span><p class="d">Analog transceiver that converts digital bits to electrical signals on the wire, and back. The "muscle" of a port.</p></div>
+      <div class="term-card"><span class="t">MII</span><p class="d">Media Independent Interface &mdash; a parallel 4-bit-wide bus (25&nbsp;MHz clock, TXD[3:0], RXD[3:0]...) connecting a MAC to a PHY, or here, Port 5 to a host.</p></div>
+      <div class="term-card"><span class="t">RMII</span><p class="d">Reduced MII &mdash; a slimmer 2-bit version needing a 50&nbsp;MHz reference clock; fewer pins, common on microcontrollers.</p></div>
+      <div class="term-card"><span class="t">Strap pin</span><p class="d">A pin sampled at reset to set a default config (clock mode, interface mode). Often reused as an LED or signal pin afterward.</p></div>
+      <div class="term-card"><span class="t">MDC/MDIO, SPI, I2C</span><p class="d">Three interchangeable serial buses a host can use to read/write the switch's config registers. You only wire up one.</p></div>
+      <div class="term-card"><span class="t">Magnetics</span><p class="d">The isolation transformer between PHY and RJ45 jack, required by the Ethernet spec for noise rejection and galvanic isolation.</p></div>
+      <div class="term-card"><span class="t">EEPROM (optional)</span><p class="d">Lets the switch auto-load custom settings at boot with no host CPU present &mdash; for a standalone, pre-configured unmanaged switch.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ SYSTEM MAP ============ -->
+  <section id="map">
+    <span class="designator">SCH &mdash; system overview</span>
+    <h2>How the support circuitry wraps around it<span class="trace"></span></h2>
+    <p class="muted">Four concerns surround the chip: power, timing, reset, and signal I/O. Click each block below for the detail.</p>
+
+    <div class="sysmap">
+      <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg">
+        <rect x="270" y="90" width="160" height="80" rx="3" fill="#123527" stroke="#e3a869" stroke-width="1.5"/>
+        <text x="350" y="125" text-anchor="middle" font-family="IBM Plex Mono" font-size="13" fill="#e3a869" font-weight="600">KSZ8895</text>
+        <text x="350" y="142" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#8fac9c">switch core</text>
+
+        <!-- four surrounding blocks -->
+        <g font-family="IBM Plex Mono" font-size="10.5" fill="#cfd8d2">
+          <rect x="30" y="20" width="150" height="46" rx="3" fill="#0f2e21" stroke="#1e4c37"/>
+          <text x="105" y="40" text-anchor="middle" fill="#e3a869">POWER</text>
+          <text x="105" y="55" text-anchor="middle" font-size="9" fill="#8fac9c">3.3V / core LDO / decoupling</text>
+
+          <rect x="520" y="20" width="150" height="46" rx="3" fill="#0f2e21" stroke="#1e4c37"/>
+          <text x="595" y="40" text-anchor="middle" fill="#e3a869">CLOCK</text>
+          <text x="595" y="55" text-anchor="middle" font-size="9" fill="#8fac9c">25MHz crystal + load caps</text>
+
+          <rect x="30" y="194" width="150" height="46" rx="3" fill="#0f2e21" stroke="#1e4c37"/>
+          <text x="105" y="214" text-anchor="middle" fill="#e3a869">RESET</text>
+          <text x="105" y="229" text-anchor="middle" font-size="9" fill="#8fac9c">RC network on RST_N</text>
+
+          <rect x="520" y="194" width="150" height="46" rx="3" fill="#0f2e21" stroke="#1e4c37"/>
+          <text x="595" y="214" text-anchor="middle" fill="#e3a869">SIGNAL I/O</text>
+          <text x="595" y="229" text-anchor="middle" font-size="9" fill="#8fac9c">magnetics, mgmt bus, straps</text>
+        </g>
+
+        <!-- connecting traces -->
+        <g stroke="#c9884f" stroke-width="1.5" fill="none">
+          <path d="M180 43 L270 43 L270 100"/>
+          <path d="M520 43 L430 43 L430 100"/>
+          <path d="M180 217 L270 217 L270 160"/>
+          <path d="M520 217 L430 217 L430 160"/>
+        </g>
+        <g fill="#c9884f">
+          <circle cx="270" cy="100" r="3"/><circle cx="430" cy="100" r="3"/>
+          <circle cx="270" cy="160" r="3"/><circle cx="430" cy="160" r="3"/>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ============ POWER ============ -->
+  <section id="power">
+    <span class="designator">B1 &mdash; power supply</span>
+    <h2>Power rails and decoupling<span class="trace"></span></h2>
+    <p>The chip needs <strong>multiple voltage rails</strong>, not just a single 3.3V supply:</p>
+    <ul>
+      <li><strong>VDDIO (3.3V)</strong> &mdash; the I/O ring voltage for logic pins talking to the outside world.</li>
+      <li><strong>Analog PHY supply (3.3V)</strong> &mdash; nominally the same rail, but separately filtered since the analog transceivers are noise-sensitive.</li>
+      <li><strong>Core digital logic (1.8V or 1.2V)</strong> &mdash; generated by a separate on-board LDO regulator for internal switching logic.</li>
+    </ul>
+
+    <details>
+      <summary>Why separate the analog and digital rails?</summary>
+      <div class="body">Digital switching noise on the core logic supply can couple into the analog PHY circuitry and degrade signal integrity &mdash; more bit errors, worse return loss &mdash; if the two share a noisy rail without isolation. Designs typically use ferrite beads and independent decoupling networks to keep the analog supply quiet, even when it's nominally the same voltage as the digital one.</div>
+    </details>
+
+    <details>
+      <summary>Why so many 0.1&micro;F caps everywhere?</summary>
+      <div class="body">Every VDD pin needs a local decoupling capacitor right at the pin, because a 128-pin QFP has many power/ground pairs distributed around the die for low-inductance current delivery. Local caps supply the instantaneous current that PCB traces and planes can't deliver fast enough on their own &mdash; without them, the supply can sag ("droop") during simultaneous port switching, causing logic glitches or PHY jitter.</div>
+    </details>
+
+    <table>
+      <thead><tr><th>Ref</th><th>Component</th><th>Typical value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="ref">C&mdash;local</td><td>Ceramic cap, one per VDD pin</td><td class="val">0.1&micro;F</td><td>High-frequency local decoupling</td></tr>
+        <tr><td class="ref">C&mdash;bulk</td><td>Bulk cap, per power domain</td><td class="val">1&ndash;10&micro;F</td><td>Handles larger transient current swings</td></tr>
+        <tr><td class="ref">FB1</td><td>Ferrite bead</td><td class="val">&mdash;</td><td>Isolates analog PHY rail from digital core noise</td></tr>
+        <tr><td class="ref">U2</td><td>LDO regulator</td><td class="val">1.8V or 1.2V out</td><td>Generates core logic voltage from 3.3V</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============ CLOCK ============ -->
+  <section id="clock">
+    <span class="designator">Y1 &mdash; reference clock</span>
+    <h2>25 MHz crystal or oscillator<span class="trace"></span></h2>
+    <p>All internal timing &mdash; <span class="pin">125</span>, <span class="pin">83</span>, <span class="pin">41</span>, <span class="pin">25</span>, and <span class="pin">10 MHz</span> clocks used across the switch fabric &mdash; is derived from one external 25 MHz reference on the <span class="pin">X1</span>/<span class="pin">X2</span> pins.</p>
+    <ul>
+      <li><strong>Crystal option:</strong> a 25 MHz crystal plus two load capacitors (commonly ~15&ndash;22pF, matched to the crystal's spec) across X1/X2.</li>
+      <li><strong>Oscillator option:</strong> a 3.3V-tolerant active 25 MHz oscillator module drives X1 directly; X2 is left open.</li>
+    </ul>
+    <details>
+      <summary>Why is 25MHz accuracy/jitter important?</summary>
+      <div class="body">100BASE-TX timing (125 Mbaud after 4B/5B encoding) and every internal switch-fabric clock are derived from this single reference through internal PLLs. Clock jitter directly affects bit error rate on the physical link, which is why datasheets specify tight ppm tolerances for the crystal &mdash; a sloppy clock source degrades the whole switch's link quality, not just one port.</div>
+    </details>
+    <p class="muted" style="font-size:14px;">If Port 5 is used in RMII mode, a 50MHz reference clock is also needed &mdash; either derived internally from the 25MHz crystal ("clock mode") or supplied externally ("normal mode"), selected via a strap pin.</p>
+  </section>
+
+  <!-- ============ RESET ============ -->
+  <section id="reset">
+    <span class="designator">R1/C1 &mdash; reset network</span>
+    <h2>Power-on reset circuit<span class="trace"></span></h2>
+    <p><span class="pin">RST_N</span> is active-low. The standard circuit is a simple RC power-on-reset: a resistor pulling RST_N high, with a capacitor to ground, so the pin stays low briefly after power-up while the cap charges, then releases.</p>
+    <table>
+      <thead><tr><th>Ref</th><th>Component</th><th>Typical value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="ref">R1</td><td>Pull-up resistor</td><td class="val">10k&Omega;</td><td>Holds RST_N high after the RC delay</td></tr>
+        <tr><td class="ref">C1</td><td>Capacitor to GND</td><td class="val">10&micro;F</td><td>Sets the reset delay after power-up</td></tr>
+        <tr><td class="ref">D1</td><td>Diode (optional)</td><td class="val">&mdash;</td><td>Lets a host CPU issue a "warm reset" without fighting R1/C1</td></tr>
+      </tbody>
+    </table>
+    <details>
+      <summary>Why not tie RST_N straight to VDD?</summary>
+      <div class="body">Internal logic and PLLs need the supply rails to be stable before reset releases &mdash; otherwise the chip can boot into an undefined state. The RC delay guarantees reset is held long enough for power to settle before the chip starts running.</div>
+    </details>
+  </section>
+
+  <!-- ============ SIGNAL I/O ============ -->
+  <section id="io">
+    <span class="designator">J1&ndash;J4 &mdash; line-side &amp; management I/O</span>
+    <h2>Magnetics, termination, and the management bus<span class="trace"></span></h2>
+
+    <h3>Per copper port (&times;4)</h3>
+    <ul>
+      <li><strong>Isolation transformer ("magnetics")</strong> &mdash; discrete or built into the RJ45 jack ("magjack"). Required for common-mode noise rejection and galvanic isolation between your board's ground and the far-end device, per the Ethernet spec.</li>
+      <li><strong>Termination resistors</strong> &mdash; typically 49.9&Omega; per line on the differential TX/RX pairs, matching the cable/transformer impedance to minimize reflections.</li>
+      <li><strong>Common-mode choke (optional)</strong> &mdash; extra EMI suppression, more common in industrial/automotive-adjacent designs (this family has AEC-Q100 variants).</li>
+    </ul>
+
+    <h3>Bias-setting resistor</h3>
+    <p>A precision resistor from the <span class="pin">ISET</span> pin to ground &mdash; commonly <strong>12.4k&Omega;, 1%</strong> &mdash; sets the PHY's internal analog bias current, calibrating transmit signal amplitude.</p>
+    <details>
+      <summary>Why does 1% tolerance matter here?</summary>
+      <div class="body">This resistor directly calibrates the analog transmit driver current. Ethernet's TX amplitude and return-loss requirements are part of IEEE 802.3 conformance, so a loose resistor tolerance can push transmit levels out of spec &mdash; especially noticeable over longer cable runs.</div>
+    </details>
+
+    <h3>Strap-in / configuration pins</h3>
+    <p>Pins like the Port 5 mode select, management-interface select, and clock-mode select are sampled at reset. External pull-up or pull-down resistors (commonly ~10k&Omega;) override the chip's internal defaults when your application needs a non-default mode &mdash; e.g. Port 5 as RMII instead of MII.</p>
+
+    <h3>Management interface</h3>
+    <p>Pick <em>one</em> of <span class="pin">MDC/MDIO</span>, <span class="pin">SPI</span>, or <span class="pin">I2C</span> for host configuration. Open-drain signals on these buses (MDIO, SPI data, SDA, and the <span class="pin">INTR_N</span> interrupt output) need external pull-ups since open-drain outputs can only pull low.</p>
+    <table>
+      <thead><tr><th>Ref</th><th>Signal</th><th>Typical value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="ref">R&mdash;mdio</td><td>MDIO / SDA / SPIQ pull-up</td><td class="val">4.7k&Omega;</td><td>Required for open-drain management signals</td></tr>
+        <tr><td class="ref">R&mdash;intr</td><td>INTR_N pull-up</td><td class="val">4.7k&Omega;</td><td>Enables the open-drain interrupt output</td></tr>
+        <tr><td class="ref">R&mdash;strap</td><td>Strap pin resistors</td><td class="val">~10k&Omega;</td><td>Overrides default boot-time configuration</td></tr>
+        <tr><td class="ref">R&mdash;led</td><td>LED series resistors</td><td class="val">a few 100&Omega;</td><td>Current-limiting for link/activity LEDs</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <span class="cal-label">Optional: serial EEPROM</span>
+      If there's no host CPU to actively configure the switch, a small I2C EEPROM lets the chip auto-load custom register values at boot &mdash; a fully standalone, pre-configured "unmanaged" switch (e.g. with a fixed VLAN setup). It needs its own small I2C pull-ups and is only necessary if the chip's power-on defaults aren't sufficient.
+    </div>
+  </section>
+
+  <!-- ============ MENTAL MODEL ============ -->
+  <section id="summary">
+    <span class="designator">NOTE &mdash; putting it together</span>
+    <h2>The mental model<span class="trace"></span></h2>
+    <p>Four concerns wrap around one chip:</p>
+    <ol>
+      <li><strong>Power</strong> &mdash; multiple clean, properly decoupled and sequenced voltage rails.</li>
+      <li><strong>Timing</strong> &mdash; one accurate, low-jitter 25MHz clock reference.</li>
+      <li><strong>Reset</strong> &mdash; a controlled power-on sequencing signal.</li>
+      <li><strong>Signal I/O</strong> &mdash; 4 copper ports with magnetics and termination, plus Port 5 wired to a host via MII/RMII, plus a management bus with pull-ups for configuration.</li>
+    </ol>
+  </section>
+
+  <footer>
+    <span>KSZ8895MLUB &middot; Integrated 5-Port 10/100 Managed Switch</span>
+    <span>Reference notes &middot; not a substitute for the full datasheet</span>
+  </footer>
+
+</div>
+</body>
+</html>
