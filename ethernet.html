@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ethernet, Electronically: PHY, MAC, OSI and Switches</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--ink:#1f2933;--mute:#5b6773;--blue:#3f6f8f;--sage:#5d8467;--vio:#7a68a6;--line:#d3d8de;--code:#e8ecf0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171c22;--card:#1f262e;--ink:#dde3ea;--mute:#98a4b1;--blue:#7ba6c4;--sage:#8fb59a;--vio:#a899cf;--line:#323b46;--code:#12171c}}
+:root[data-theme="dark"]{--bg:#171c22;--card:#1f262e;--ink:#dde3ea;--mute:#98a4b1;--blue:#7ba6c4;--sage:#8fb59a;--vio:#a899cf;--line:#323b46;--code:#12171c}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.7 Georgia,"Iowan Old Style",Cambria,serif}
+main{max-width:860px;margin:0 auto;padding:0 18px 60px}
+h1,h2,h3,nav,table,button,select,.tag{font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif}
+header{padding:56px 0 20px}
+h1{font-size:clamp(2rem,6vw,3.1rem);line-height:1.1;margin:0 0 12px;color:var(--blue)}
+.lead{color:var(--mute);font-size:1.1rem;max-width:62ch}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0}
+nav a{padding:6px 12px;border:1px solid var(--line);border-radius:20px;color:var(--ink);text-decoration:none;font-size:.85rem;background:var(--card)}
+nav a:hover,nav a:focus-visible{border-color:var(--blue);outline:none}
+section{margin-top:54px}
+h2{font-size:1.65rem;margin:0 0 6px;color:var(--sage)}
+h3{font-size:1.15rem;margin:28px 0 4px;color:var(--vio)}
+p{max-width:68ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:18px 0}
+.fig{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:18px 0;overflow-x:auto}
+.fig svg{width:100%;min-width:560px;height:auto;display:block}
+.fig figcaption,.cap{color:var(--mute);font-size:.85rem;padding:4px 8px}
+.wrap{overflow-x:auto;margin:16px 0}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{color:var(--blue)}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em}
+.tag{display:inline-block;font-size:.75rem;padding:1px 8px;border-radius:10px;border:1px solid var(--vio);color:var(--vio);margin-right:6px}
+.note{border-left:4px solid var(--vio);padding:4px 14px;color:var(--mute);margin:18px 0}
+.layers{display:grid;gap:6px}
+.layers button{display:flex;gap:12px;align-items:center;text-align:left;padding:10px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;cursor:pointer;font-size:.95rem}
+.layers button[aria-pressed=true]{border-color:var(--blue);background:var(--code)}
+.layers b{min-width:2.2em;color:var(--blue)}
+.layers .eth{border-left:5px solid var(--sage)}
+#ldesc{min-height:7em}
+select{padding:6px 8px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;font-size:.95rem}
+dt{font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif;color:var(--blue);margin-top:12px}dd{margin:2px 0 0;color:var(--ink)}
+.calc{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+svg text{font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif;font-size:13px;fill:var(--ink)}
+.b{fill:var(--card);stroke:var(--blue);stroke-width:1.5}.s{fill:var(--card);stroke:var(--sage);stroke-width:1.5}.v{fill:var(--card);stroke:var(--vio);stroke-width:1.5}
+.ln{stroke:var(--mute);stroke-width:1.5;fill:none}.m{fill:var(--mute)!important;font-size:11.5px!important}
+</style></head><body><main>
+<header><h1>Ethernet, electronically</h1>
+<p class="lead">From a bit in your microcontroller to a voltage on a copper pair, and how switches decide where it goes. Built around TI's article SSZT321 (<em>Ethernet PHY Basics and Selection Process</em>) with extra background where the article assumes you already know it.</p>
+<nav aria-label="Sections"><a href="#what">What is Ethernet</a><a href="#osi">OSI layers</a><a href="#macphy">MAC and PHY</a><a href="#wire">On the wire</a><a href="#mii">MII family</a><a href="#mdi">Cable standards</a><a href="#switch">Switches</a><a href="#hw">Hardware design</a><a href="#select">Choosing a PHY</a><a href="#gloss">Glossary</a></nav></header>
+
+<section id="what"><h2>What Ethernet actually is</h2>
+<p>Ethernet is a family of wired networking standards maintained by the IEEE 802.3 group. The trick that kept it alive for decades: the top half (the frame format) never changed, while the bottom half (speed, cable, voltages) was reinvented again and again. TI's article puts it this way: IEEE kept adding new data rates, new physical media and new PHY functions, so Ethernet grew far beyond office computers.</p>
+<p>Compared with the buses you know (UART, SPI, I2C), Ethernet is built for tens to hundreds of metres, many nodes, and electrically hostile places like factories and cars.</p>
+<div class="card"><b>Mental model.</b> Think of the post office. The <b>MAC</b> writes the envelope (addresses, checksum). The <b>PHY</b> is the truck driver: it knows nothing about the letter, only how to move it over the road. A <b>switch</b> is the sorting centre that reads the address and picks the right road.</div></section>
+
+<section id="osi"><h2>Where Ethernet sits in the OSI model</h2>
+<p>The OSI model splits networking into seven layers. Ethernet lives in the bottom two: layer 1 (Physical) and layer 2 (Data Link). Everything above, like IP and TCP, rides inside Ethernet frames. Tap a layer below.</p>
+<div class="layers" id="layers" role="group" aria-label="OSI layers"></div>
+<div class="card" id="ldesc" aria-live="polite"></div>
+
+<figure class="fig"><svg viewBox="0 0 700 300" role="img" aria-label="Encapsulation: data wrapped by TCP, IP and Ethernet headers">
+<text x="10" y="22" class="m">Each layer wraps the one above in its own header (and Ethernet adds a trailer)</text>
+<rect x="250" y="40" width="200" height="34" class="b"/><text x="305" y="62">App data</text>
+<rect x="190" y="90" width="60" height="34" class="v"/><text x="203" y="112">TCP</text><rect x="250" y="90" width="200" height="34" class="b"/><text x="305" y="112">App data</text>
+<text x="470" y="112" class="m">L4 segment</text>
+<rect x="130" y="140" width="60" height="34" class="v"/><text x="150" y="162">IP</text><rect x="190" y="140" width="60" height="34" class="v"/><text x="203" y="162">TCP</text><rect x="250" y="140" width="200" height="34" class="b"/><text x="305" y="162">App data</text>
+<text x="470" y="162" class="m">L3 packet</text>
+<rect x="20" y="190" width="110" height="34" class="s"/><text x="30" y="212">Eth header</text><rect x="130" y="190" width="60" height="34" class="v"/><text x="150" y="212">IP</text><rect x="190" y="190" width="60" height="34" class="v"/><text x="203" y="212">TCP</text><rect x="250" y="190" width="200" height="34" class="b"/><text x="305" y="212">App data</text><rect x="450" y="190" width="60" height="34" class="s"/><text x="465" y="212">FCS</text>
+<text x="525" y="212" class="m">L2 frame (MAC)</text>
+<text x="20" y="262">L1 (PHY): the frame becomes a stream of bits, then voltages: 0 1 1 0 1 0 0 1 ...</text>
+<path class="ln" d="M20 240 L690 240" stroke-dasharray="4 4"/></svg>
+<figcaption>Dest MAC (6 B), source MAC (6 B), EtherType (2 B), payload (46-1500 B), FCS (4 B CRC-32). Preamble (8 B) is added first so the receiver can lock its clock.</figcaption></figure>
+
+<h3>Layer 2 is really two jobs</h3>
+<p>The MAC sublayer builds frames, checks the CRC, and (in half-duplex) manages collisions. The Logical Link sublayer on top identifies the protocol. In hardware, the MAC is digital logic inside your MCU, SoC, FPGA or switch chip. Layer 1 is the PHY, the mixed-signal chip that touches the cable.</p></section>
+
+<section id="macphy"><h2>MAC and PHY: the two halves of a port</h2>
+<figure class="fig"><svg viewBox="0 0 760 230" role="img" aria-label="Signal chain from MAC through PHY, magnetics and RJ45 to cable">
+<rect x="10" y="60" width="130" height="80" class="b"/><text x="30" y="95">MAC</text><text x="22" y="115" class="m">in MCU / SoC</text>
+<rect x="215" y="40" width="150" height="120" class="s"/><text x="262" y="68">PHY</text><rect x="225" y="80" width="60" height="30" class="v"/><text x="233" y="100" class="m">digital</text><rect x="295" y="80" width="60" height="30" class="v"/><text x="303" y="100" class="m">analog</text><text x="228" y="140" class="m">25 MHz xtal, regs</text>
+<rect x="440" y="70" width="95" height="60" class="b"/><text x="450" y="97">Magnetics</text><text x="450" y="115" class="m">xfmr + choke</text>
+<rect x="590" y="70" width="70" height="60" class="b"/><text x="607" y="105">RJ45</text>
+<path class="ln" d="M140 100 H215"/><path class="ln" d="M365 100 H440"/><path class="ln" d="M535 100 H590"/><path class="ln" d="M660 100 H750" stroke-width="3"/>
+<text x="148" y="90" class="m">MII/RMII</text><text x="148" y="125" class="m">RGMII/SGMII</text><text x="372" y="90" class="m">MDI</text><text x="665" y="90" class="m">cable</text>
+<path class="ln" d="M75 140 V200 H290 V160"/><text x="110" y="195" class="m">MDIO/MDC: read and write PHY registers</text></svg>
+<figcaption>TI's Figure 1 shows the same idea: a PHY transceiver connects one device to another over copper (like CAT5) or fiber.</figcaption></figure>
+<p><b>Digital domain.</b> The PHY talks to the MAC through a Media Independent Interface, or one of its variants (next sections). "Media independent" means the MAC does not care what cable or speed is behind the PHY. <b>Analog domain.</b> On the cable side sits the Medium Dependent Interface (MDI), a continuous, time-varying signal. This is where 10BASE-T, 100BASE-TX, 1000BASE-T and the T1 family all differ.</p>
+<p>Inside the PHY: on transmit, scrambling, line coding, pulse shaping and a line driver; on receive, an analog front end, equaliser, clock recovery PLL, decoder. Plus auto-negotiation, link LEDs and a management register block.</p></section>
+
+<section id="wire"><h2>What happens on the wire</h2>
+<h3>Differential pairs</h3>
+<p>CAT5/5e/6 cable holds four twisted pairs. Each signal is sent as +V on one wire and -V on its partner; the receiver reads only the difference. Interference hits both wires equally and cancels, and twisting keeps that coupling equal. Nominal differential impedance is 100 ohms, so traces and terminations must match to avoid reflections.</p>
+<figure class="fig"><svg viewBox="0 0 700 180" role="img" aria-label="Differential signal and common-mode noise cancelling">
+<text x="10" y="20" class="m">Wire A</text><path class="ln" style="stroke:var(--blue)" d="M60 40 h60 v-18 h60 v18 h60 v-18 h60 v18 h60 v-18 h60 v18 h60"/>
+<text x="10" y="90" class="m">Wire B</text><path class="ln" style="stroke:var(--vio)" d="M60 70 h60 v18 h60 v-18 h60 v18 h60 v-18 h60 v18 h60 v-18 h60"/>
+<text x="10" y="150" class="m">A minus B</text><path class="ln" style="stroke:var(--sage);stroke-width:2.5" d="M60 140 h60 v-36 h60 v36 h60 v-36 h60 v36 h60 v-36 h60 v36 h60"/>
+<text x="500" y="165" class="m">noise added to both wires disappears in A minus B</text></svg></figure>
+<h3>Magnetics: why there is a transformer</h3>
+<p>Between PHY and connector, BASE-T ports use a magnetics module that provides galvanic isolation (typically about 1.5 kV), common-mode noise rejection through chokes, and coupling between driver and cable. This is a big part of the "external components" cost the article lists against 100BASE-TX. Single-pair automotive PHYs usually get by with AC-coupling capacitors and a common-mode choke.</p>
+<h3>How bits become voltages</h3>
+<div class="wrap"><table><tr><th>Standard</th><th>Pairs</th><th>Symbol rate</th><th>Line signal</th></tr>
+<tr><td>10BASE-T</td><td>2 (one each way)</td><td>10 Mbaud</td><td>Manchester: a transition in every bit, so the clock rides along</td></tr>
+<tr><td>100BASE-TX</td><td>2</td><td>125 Mbaud</td><td>4B/5B coding, scrambling, MLT-3 (three levels) to keep frequency and EMI low</td></tr>
+<tr><td>1000BASE-T</td><td>4, both directions at once</td><td>125 Mbaud per pair</td><td>PAM-5 (five levels) plus echo cancellation and error correction</td></tr>
+<tr><td>T1 family</td><td>1, both directions at once</td><td>varies</td><td>PAM-3 multi-level signalling with echo cancellation</td></tr></table></div>
+<p>That last row is why gigabit PHYs are DSP-heavy and warm: a hybrid circuit subtracts your own transmitted signal so you can listen on the same wire you talk on.</p>
+<div class="note">Auto MDI-X: many PHYs detect whether TX and RX pairs are swapped and fix it themselves, so straight and crossover cables both work.</div></section>
+
+<section id="mii"><h2>The MAC-to-PHY interfaces</h2>
+<div class="wrap"><table><tr><th>Interface</th><th>Pins (article)</th><th>Speeds (Mbps)</th><th>Good</th><th>Bad</th></tr>
+<tr><td>MII</td><td>14</td><td>10, 100</td><td>Common pinout, simple, lowest latency</td><td>No 1G, many pins</td></tr>
+<tr><td>RMII</td><td>6</td><td>10, 100</td><td>Few pins</td><td>FIFO makes latency less deterministic, no 1G</td></tr>
+<tr><td>GMII</td><td>20</td><td>10, 100, 1000</td><td>1G, low latency</td><td>Many pins, rarely supported</td></tr>
+<tr><td>RGMII</td><td>12</td><td>10, 100, 1000</td><td>1G, common pinout</td><td>Hard to route, poor EMC</td></tr>
+<tr><td>SGMII</td><td>4</td><td>10, 100, 1000</td><td>1G, excellent EMC, easy routing</td><td>Costlier ICs</td></tr></table></div>
+<p>The math is simple: clock = data rate / (bus width x edges per clock). MII moves 4 bits per clock, so 100 Mbps needs 25 MHz. RMII uses 2 bits, so a shared 50 MHz reference. GMII moves 8 bits at 125 MHz. RGMII returns to 4 bits but samples on both clock edges (DDR) at 125 MHz. SGMII serialises everything onto two differential pairs at 1.25 Gbaud. Try it:</p>
+<div class="card calc"><label>Interface <select id="ci"><option>MII</option><option>RMII</option><option>GMII</option><option>RGMII</option><option>SGMII</option></select></label>
+<label>Link speed <select id="cs"><option>10</option><option selected>100</option><option>1000</option></select> Mbps</label><div id="cout" aria-live="polite"></div></div>
+<p>Article pin counts exclude the 2-wire MDIO/MDC management bus. RGMII also needs care with clock-to-data skew; many PHYs offer a programmable internal delay (often around 2 ns) so you can fix timing in firmware.</p></section>
+
+<section id="mdi"><h2>Cable-side standards decoded</h2>
+<p>Read <b>100BASE-TX</b> as: 100 Mbps, BASE = baseband signalling, T = twisted pair, X = the specific encoding. <b>T1</b> means one pair, <b>T1L</b> one pair with long reach, <b>Te</b> the lower-power enhanced 10 Mbps variant.</p>
+<div class="wrap"><table><tr><th>Standard</th><th>Speed</th><th>Where it lives (article)</th><th>Medium</th><th>Trade-off</th></tr>
+<tr><td>10BASE-T/Te</td><td>10M</td><td>Industrial lighting</td><td>CAT5</td><td>Long reach, low standby power, slow</td></tr>
+<tr><td>10BASE-T1L</td><td>10M</td><td>Field transmitters, HVAC, escalators</td><td>UTP/STP</td><td>Ultra-long reach, power over the data pair, slow</td></tr>
+<tr><td>100BASE-TX</td><td>100M</td><td>PLCs, IP cameras, OBD ports</td><td>CAT5</td><td>Used by field buses; high emissions, external parts</td></tr>
+<tr><td>100BASE-T1</td><td>100M</td><td>Head units, gateways, robotics, avionics</td><td>UTP/STP</td><td>Low emissions; no PC support, short reach</td></tr>
+<tr><td>1000BASE-T</td><td>1G</td><td>IP cameras, test and measurement</td><td>CAT6</td><td>Fast; pricier cable</td></tr>
+<tr><td>1000BASE-T1</td><td>1G</td><td>Telematics, gateways, machine vision</td><td>UTP/STP</td><td>Fast, one pair; no PC support, short reach</td></tr></table></div>
+<h3>Auto-negotiation</h3>
+<p>Plug in a cable and each PHY fires Fast Link Pulses carrying a 16-bit word listing what it supports (speed, duplex, flow control). Both sides read the other's word and pick the best common mode by a priority table: 1000 full beats 100 full beats 10. Classic bug: force one side to a fixed speed while the other auto-negotiates and you get a duplex mismatch, which means slow links and CRC errors. Single-pair automotive PHYs generally use master/slave configuration instead.</p>
+<div class="note">Heads-up on the article's Table 2: it lists 802.3u for 10BASE-T/Te and 802.3bu for 100BASE-T1. As far as I know, those are 802.3i / 802.3az and 802.3bw. Verify in the standard before citing.</div></section>
+
+<section id="switch"><h2>Switches: hubs, unmanaged, managed</h2>
+<p>Everything so far was one link. A network needs many nodes, and that is the switch's job. Three generations to know:</p>
+<p><b>Hub (layer 1).</b> Repeats every bit to every port. One shared collision domain, half-duplex, everyone hears everything. Obsolete. <b>Switch (layer 2).</b> Reads the destination MAC address and forwards the frame only to the right port, so each port is its own collision domain and full-duplex is normal.</p>
+<h3>How a switch learns</h3>
+<figure class="fig"><svg viewBox="0 0 700 270" role="img" aria-label="MAC address learning in a 4-port switch">
+<rect x="250" y="90" width="200" height="90" class="s"/><text x="300" y="115">Switch fabric</text><text x="262" y="138" class="m">MAC table: A is port 1</text><text x="262" y="156" class="m">B is port 2 (learned later)</text>
+<rect x="20" y="30" width="80" height="40" class="b"/><text x="45" y="55">PC A</text><rect x="20" y="200" width="80" height="40" class="b"/><text x="45" y="225">PC B</text><rect x="600" y="30" width="80" height="40" class="b"/><text x="625" y="55">PC C</text><rect x="600" y="200" width="80" height="40" class="b"/><text x="625" y="225">PC D</text>
+<path class="ln" d="M100 50 L250 110"/><path class="ln" d="M100 220 L250 160"/><path class="ln" d="M600 50 L450 110"/><path class="ln" d="M600 220 L450 160"/>
+<text x="40" y="20" class="m">1. A sends to B: switch notes A is on port 1</text>
+<text x="170" y="262" class="m">2. B unknown yet: frame flooded to ports 2, 3, 4   3. B replies: B learned, later frames go to port 2 only</text></svg></figure>
+<p>The switch builds this table automatically from source addresses. Unknown or broadcast destinations get flooded; known ones get forwarded to a single port. Entries age out after a few minutes.</p>
+<h3>Unmanaged versus managed</h3>
+<div class="wrap"><table><tr><th></th><th>Unmanaged</th><th>Managed</th></tr>
+<tr><td>Setup</td><td>Plug and play, no interface</td><td>Configured over web UI, CLI, SNMP or SPI/MDIO registers</td></tr>
+<tr><td>Features</td><td>Learning, forwarding, auto-negotiation</td><td>VLANs, QoS priority queues, port mirroring, rate limiting, link aggregation, spanning tree, IGMP snooping, port security</td></tr>
+<tr><td>Visibility</td><td>LEDs only</td><td>Per-port counters, error stats, logs, remote monitoring</td></tr>
+<tr><td>Loop protection</td><td>None: a looped cable can cause a broadcast storm</td><td>STP/RSTP blocks redundant paths</td></tr>
+<tr><td>Cost, complexity</td><td>Cheapest, simplest</td><td>More expensive, needs configuring</td></tr>
+<tr><td>Best for</td><td>Home, small desks, simple device clusters</td><td>Factories, vehicles, campuses, anything needing segmentation, priorities or diagnostics</td></tr></table></div>
+<h3>Managed features in plain words</h3>
+<p><b>VLAN</b>: carve one physical switch into separate logical networks using a 4-byte 802.1Q tag in the frame. <b>QoS</b>: priority queues so a control message beats a bulk download. <b>Spanning tree</b>: disables redundant links until needed so loops never form. <b>Port mirroring</b>: copies traffic to a monitor port for debugging. <b>IGMP snooping</b>: stops multicast from flooding every port. <b>Link aggregation</b>: bundles ports for bandwidth.</p>
+<h3>Inside a switch IC (extra)</h3>
+<figure class="fig"><svg viewBox="0 0 700 190" role="img" aria-label="Block diagram of a managed switch IC">
+<rect x="150" y="20" width="400" height="150" class="s"/><text x="300" y="42">Managed switch IC</text>
+<rect x="165" y="60" width="90" height="40" class="b"/><text x="183" y="85">MAC x N</text><rect x="275" y="60" width="130" height="40" class="v"/><text x="290" y="85">Switch fabric + table</text><rect x="425" y="60" width="110" height="40" class="b"/><text x="440" y="85">Config regs</text>
+<rect x="165" y="120" width="90" height="35" class="s"/><text x="180" y="142">PHY x N</text>
+<path class="ln" d="M255 80 H275"/><path class="ln" d="M405 80 H425"/><path class="ln" d="M210 100 V120"/>
+<path class="ln" d="M165 137 H80"/><text x="10" y="130" class="m">ports to magnetics + RJ45</text><path class="ln" d="M535 80 H620"/><text x="560" y="70" class="m">SPI / I2C / MDIO from host MCU</text></svg>
+<figcaption>Small managed switch ICs integrate the PHYs, MACs, forwarding table and a register interface for a host MCU, with one or more ports usable as an uplink to the MCU's MAC through RMII/RGMII.</figcaption></figure></section>
+
+<section id="select"><h2>Choosing a PHY: the article's process</h2>
+<p>Work down three specs that vendors publish. <b>1. Data rate</b>: pick 10, 100 or 1000 Mbps from the application. <b>2. Standard</b>: consumer and most industrial gear uses 10BASE-Te, 100BASE-TX and 1000BASE-T because PCs speak them; automotive uses BASE-T1, which is completely different from BASE-T. Exception: automotive OBD ports normally use BASE-T/TX so a PC can plug in. <b>3. MAC interface</b>: make sure your MCU or SoC and the PHY share an interface (RMII for small MCUs, RGMII for application processors).</p>
+<p>Beyond the article, also weigh latency, power and heat, temperature grade (industrial or AEC-Q100), EMC budget, I/O voltage, clocking, package, and features such as cable diagnostics, IEEE 1588 timestamping and Energy Efficient Ethernet. TI's article names the DP83826E (low-latency 10/100 for Industry 4.0 and daisy chains) and the DP83TC811S-Q1 (100BASE-T1 automotive). Its selection flowchart is an image in the PDF; open the original to see it. Part 2 of the series covers schematic and layout practice.</p></section>
+
+<section id="hw"><h2>The hardware engineer's view</h2>
+<p>Everything above decides <em>what</em> to build. This part is about making a port that links up, passes EMC and survives a factory floor.</p>
+<h3>A typical 10/100 port, part by part</h3>
+<figure class="fig"><svg viewBox="0 0 740 250" role="img" aria-label="Schematic-level view of an Ethernet port: PHY, magnetics, Bob Smith termination, RJ45, chassis ground">
+<rect x="10" y="40" width="130" height="150" class="s"/><text x="55" y="62">PHY</text><text x="18" y="86" class="m">TXP/TXN</text><text x="18" y="106" class="m">RXP/RXN</text><text x="18" y="130" class="m">25 MHz XTAL</text><text x="18" y="150" class="m">RESET, straps</text><text x="18" y="170" class="m">MDIO/MDC, LEDs</text>
+<rect x="250" y="40" width="130" height="110" class="b"/><text x="270" y="62">Magnetics</text><text x="262" y="86" class="m">transformer</text><text x="262" y="104" class="m">common-mode choke</text><text x="262" y="122" class="m">center taps</text>
+<rect x="500" y="40" width="90" height="110" class="b"/><text x="522" y="62">RJ45</text><text x="508" y="90" class="m">pins 1,2 TX</text><text x="508" y="108" class="m">pins 3,6 RX</text><text x="508" y="126" class="m">shield tab</text>
+<path class="ln" d="M140 90 H250"/><path class="ln" d="M380 90 H500"/><text x="160" y="80" class="m">100 ohm diff</text>
+<rect x="395" y="175" width="120" height="40" class="v"/><text x="400" y="192" class="m">75 ohm x4 + 1 nF/2 kV</text><text x="400" y="207" class="m">to chassis ground</text>
+<path class="ln" d="M440 90 V175"/><path class="ln" d="M545 150 V195 H515"/><text x="600" y="190" class="m">chassis ground (moat)</text>
+<path class="ln" d="M315 150 V215 H140"/><text x="150" y="232" class="m">PHY-side center tap: supply or cap, per datasheet</text></svg>
+<figcaption>Illustrative, not a reference design. Always copy the exact center-tap and termination scheme from your PHY's datasheet and magnetics' datasheet.</figcaption></figure>
+<h3>Schematic checklist</h3>
+<p><b>Clock.</b> A 25 MHz crystal or oscillator feeds the PHY (RMII systems often share one 50 MHz source with the MAC). Aim for tight tolerance, roughly 50 ppm in practice (the standard allows about 100 ppm), and choose load capacitors from the PHY datasheet and crystal CL. Poor frequency accuracy shows up as random CRC errors and failed links to other vendors' gear.</p>
+<p><b>Power.</b> PHYs often need several rails: an analog supply (for example 3.3 V), a core rail (around 1.0 to 1.2 V, sometimes made internally), and an I/O rail matching your MAC (1.8 to 3.3 V). Decouple each pin group, filter analog rails with ferrite beads, and check the sequencing requirements. Gigabit PHYs run warm, so check package thermal pad and copper area.</p>
+<p><b>Reset and straps.</b> Hold reset low until supplies and clock are stable, then wait the datasheet time before touching MDIO. At reset release the PHY samples strapping pins to set its MDIO address, interface mode, auto-negotiation defaults and RGMII delay. Use the recommended pull-up/pull-down values (commonly a few kilohms) and watch for LED pins that double as straps: an LED wired the wrong way can flip the strap.</p>
+<p><b>Magnetics and termination.</b> Pick a module rated for your speed, with isolation voltage that meets your safety standard. The PHY-side center taps are either tied to a supply or left to capacitors depending on whether the driver is current-mode or voltage-mode. On the cable side, unused pairs are commonly terminated with 75 ohm resistors to a high-voltage capacitor to chassis (called Bob Smith termination), which damps common-mode noise and reflections.</p>
+<p><b>Protection.</b> The RJ45 is an antenna and a lightning rod. Add low-capacitance TVS arrays suited to the data rate where your ESD or surge target requires it, and keep them close to the connector. Integrated-magnetics RJ45 jacks save board area and often simplify layout.</p>
+<h3>Layout rules that matter</h3>
+<p><b>Differential routing.</b> Keep pairs at 100 ohm differential impedance, tightly length-matched within a pair, short, and with as few vias and layer changes as possible. Keep other signals and the crystal away from them.</p>
+<p><b>Magnetics area.</b> Keep the PHY side and the cable side separated, with no copper plane underneath the cable-side pins, so the isolation barrier stays intact and noise can't couple across. Connect the connector shield to a chassis-ground region, and tie chassis to signal ground in one deliberate place (often through a capacitor or resistor in parallel with a high-voltage cap, per the design's EMC strategy).</p>
+<p><b>RGMII.</b> Match data lines to their clock within the datasheet's skew window and let the PHY's internal delay (commonly 2 ns) provide the clock offset, rather than meandering traces. <b>RMII/MII.</b> Source-terminate if the traces are long, and keep clocks away from the analog side.</p>
+<h3>Bring-up and debugging</h3>
+<p>Power up in this order: check rails and clock with a scope, release reset, then read the PHY identifier registers over MDIO (registers 2 and 3 in IEEE 802.3 clause 22 PHYs). If those read garbage, suspect address straps, MDIO pull-up (it needs one), or clock. Register 1 holds the link-status bit; register 0 controls reset, speed, auto-negotiation and loopback; registers 4 and 5 hold your advertised abilities and the partner's. Use PHY loopback modes to separate MAC, PHY and cable faults. Then look at link LEDs, per-port error counters and (where the PHY has it) built-in cable diagnostics, which work like a TDR to find opens, shorts and the distance to them.</p>
+<div class="wrap"><table><tr><th>Symptom</th><th>Likely hardware cause</th></tr>
+<tr><td>No link light</td><td>Reset or clock fault, swapped or open pair, bad magnetics center-tap, wrong strap mode</td></tr>
+<tr><td>Links at 10 instead of 100</td><td>Cable damage, only two pairs wired for gigabit, auto-negotiation disabled on one side</td></tr>
+<tr><td>Link but lots of CRC errors</td><td>Crystal tolerance, RGMII skew, duplex mismatch, noisy supply, poor termination</td></tr>
+<tr><td>Passes on bench, fails EMC</td><td>Split/ground strategy, missing common-mode choke, long clock traces near the port, shield bonding</td></tr>
+<tr><td>Link drops when a motor starts</td><td>Surge or ESD path, ground bounce, cable shield not bonded to chassis</td></tr></table></div>
+<h3>Cable and signal integrity numbers</h3>
+<p>CAT5e is specified to 100 MHz, CAT6 to 250 MHz, CAT6A to 500 MHz. The main impairments are insertion loss (the signal weakens with length, hence the 100 m limit for BASE-T), return loss (reflections from impedance mismatch), and near-end crosstalk, called NEXT (a pair's own transmit leaking into its neighbours). Gigabit's echo canceller and equaliser exist to fight exactly these effects.</p>
+<h3>Power over Ethernet in two lines</h3>
+<p>PoE (IEEE 802.3af/at/bt) sends DC power alongside data, tapped through the magnetics' center taps or over spare pairs, so a PoE port adds a PD controller, a rectifier bridge and an isolated DC-DC converter to your hardware. 10BASE-T1L and automotive links use PoDL instead, which couples power onto the single data pair.</p></section>
+<section id="gloss"><h2>Glossary, explained</h2>
+<dl>
+<dt>Auto-negotiation</dt><dd>PHYs swap capability words using fast link pulses and agree on the best common speed and duplex.</dd>
+<dt>Auto MDI-X</dt><dd>The PHY swaps its TX and RX pairs automatically, so cable type stops mattering.</dd>
+<dt>BASE</dt><dd>Baseband signalling: the signal occupies the cable directly, no radio-style carrier.</dd>
+<dt>Bob Smith termination</dt><dd>75 ohm resistors on unused or center-tap pairs tied through a capacitor to chassis, to damp common-mode noise.</dd>
+<dt>CAT5e / CAT6 / CAT6A</dt><dd>Twisted-pair cable grades with tested bandwidth of 100, 250 and 500 MHz.</dd>
+<dt>Collision domain</dt><dd>The set of devices that can interfere with each other's transmissions. A switch gives each port its own.</dd>
+<dt>Common-mode choke</dt><dd>Coupled inductor that blocks noise appearing equally on both wires while passing the differential signal.</dd>
+<dt>CRC / FCS</dt><dd>The 32-bit checksum at the end of every frame. A bad FCS means the frame is discarded.</dd>
+<dt>CRS / COL</dt><dd>MII signals: carrier sense (line is busy) and collision detect (half-duplex only).</dd>
+<dt>DDR</dt><dd>Double data rate: data is transferred on both rising and falling clock edges, as in RGMII.</dd>
+<dt>Duplex</dt><dd>Full duplex sends and receives at once; half duplex takes turns and needs collision handling.</dd>
+<dt>EEE</dt><dd>Energy Efficient Ethernet (802.3az): the link sleeps between bursts to save power.</dd>
+<dt>EMC / EMI</dt><dd>Electromagnetic compatibility is your product coping with noise; interference is the noise itself, including what you emit.</dd>
+<dt>FIFO</dt><dd>First-in-first-out buffer; RMII receive uses one to bridge clock differences, which adds latency variation.</dd>
+<dt>FLP</dt><dd>Fast link pulse: a burst of pulses carrying a 16-bit capability word during auto-negotiation.</dd>
+<dt>Frame</dt><dd>The layer-2 packet: addresses, type, payload and FCS.</dd>
+<dt>Galvanic isolation</dt><dd>No direct electrical path between two sides; signals cross through a transformer, protecting against ground differences.</dd>
+<dt>IGMP snooping</dt><dd>Managed-switch feature that sends multicast only to ports that asked for it.</dd>
+<dt>Line coding</dt><dd>The rule for turning bits into voltage levels: Manchester, MLT-3, PAM-3, PAM-5.</dd>
+<dt>MAC address</dt><dd>The 48-bit hardware address of an interface, used for layer-2 delivery.</dd>
+<dt>MDI / MDIO / MDC</dt><dd>MDI is the analog cable-side interface; MDIO and MDC are the two-wire data and clock lines used to read and write PHY registers.</dd>
+<dt>Magnetics</dt><dd>The transformer and choke module between PHY and connector.</dd>
+<dt>Manchester</dt><dd>10BASE-T coding with a transition in every bit period, carrying clock and data together.</dd>
+<dt>MLT-3</dt><dd>Three-level code (+1, 0, -1) that cycles slowly to cut the signal's frequency in 100BASE-TX.</dd>
+<dt>NEXT</dt><dd>Near-end crosstalk: your transmit pair leaking into a neighbouring pair at the same end.</dd>
+<dt>OBD</dt><dd>On-board diagnostics: the car's service port, which often uses BASE-T/TX for PC access.</dd>
+<dt>PAM-3 / PAM-5</dt><dd>Pulse amplitude modulation with three or five voltage levels per symbol.</dd>
+<dt>PLC</dt><dd>Programmable logic controller, an industrial automation computer.</dd>
+<dt>PoE / PoDL</dt><dd>Power over Ethernet on 4-pair cable, and power over data lines on a single pair.</dd>
+<dt>QoS</dt><dd>Quality of service: priority queues so urgent traffic is forwarded first.</dd>
+<dt>Return loss</dt><dd>How much signal reflects back from impedance mismatches; higher return loss (in dB) means fewer reflections.</dd>
+<dt>STP (cable) / STP (protocol)</dt><dd>Shielded twisted pair is a cable; spanning tree protocol (and RSTP) blocks redundant switch links to prevent loops. Context tells which.</dd>
+<dt>Strapping pins</dt><dd>Pins sampled at reset to set the PHY's default configuration.</dd>
+<dt>TVS</dt><dd>Transient voltage suppressor, a clamp diode for ESD and surge.</dd>
+<dt>UTP</dt><dd>Unshielded twisted pair.</dd>
+<dt>VLAN</dt><dd>Virtual LAN: logical network separation using an 802.1Q tag in the frame.</dd>
+</dl></section>
+
+</main>
+<script>
+var L=[["7","Application","HTTP, MQTT, DHCP: what your software says.",0],["6","Presentation","Encoding, encryption (TLS is often placed here).",0],["5","Session","Opening and tracking conversations.",0],["4","Transport","TCP and UDP: ports, reliability, ordering.",0],["3","Network","IP addresses and routing between networks. Routers live here.",0],["2","Data Link","<b>Ethernet MAC.</b> Frames, MAC addresses, CRC. Switches live here. MII-family interfaces carry this layer's data to the PHY.",1],["1","Physical","<b>Ethernet PHY.</b> Bits to voltages, line coding, magnetics, cable, auto-negotiation. Hubs and repeaters live here. The MDI is its cable-side face.",1]];
+var box=document.getElementById("layers"),d=document.getElementById("ldesc");
+function pick(i){[].forEach.call(box.children,function(b,j){b.setAttribute("aria-pressed",j==i)});var x=L[i];d.innerHTML="<b>Layer "+x[0]+": "+x[1]+"</b><p>"+x[2]+"</p><p>"+(x[3]?"This is Ethernet's territory.":"Not part of Ethernet itself; it rides inside Ethernet frames.")+"</p>"}
+L.forEach(function(x,i){var b=document.createElement("button");b.setAttribute("aria-pressed","false");if(x[3])b.className="eth";b.innerHTML="<b>"+x[0]+"</b>"+x[1];b.onclick=function(){pick(i)};box.appendChild(b)});pick(5);
+function calc(){var t=document.getElementById("ci").value,r=+document.getElementById("cs").value,w={MII:4,RMII:2,GMII:8,RGMII:4}[t],e=t=="RGMII"?2:1,o;
+if(t=="SGMII")o="Serial line rate 1.25 Gbaud (8b/10b coding), 2 differential pairs, embedded clock.";
+else if(t=="RMII")o="Shared reference clock 50 MHz, 2-bit bus ("+(r*1e6/2/1e6)+" MHz effective data clock).";
+else if(t=="GMII"&&r<1000)o="Clock "+(r/8)+" MHz in 1000 mode only for full speed; at "+r+" Mbps GMII runs a 4-bit nibble style at "+(r/4)+" MHz.";
+else{var c=r/(w*e);o=w+"-bit bus"+(e==2?", both clock edges":"")+", clock "+c+" MHz."}
+document.getElementById("cout").textContent=o}
+document.getElementById("ci").onchange=calc;document.getElementById("cs").onchange=calc;calc();
+</script></body></html>
