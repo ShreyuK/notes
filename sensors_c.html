@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Isolated NTC node for 14S / 7S pack temperature monitoring</title>
+<style>
+:root{--bg:#171c26;--panel:#1f2633;--line:#324055;--tx:#d5dbe5;--mut:#98a3b5;--blue:#7b9cc0;--sage:#98b394;--vio:#a799cf;--warn:#d1a56f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f1f3f6;--panel:#fff;--line:#c9d1dc;--tx:#222b38;--mut:#566175;--blue:#3f648c;--sage:#4f7a4b;--vio:#6a5aa0;--warn:#8a5a1c}}
+:root[data-theme="dark"]{--bg:#171c26;--panel:#1f2633;--line:#324055;--tx:#d5dbe5;--mut:#98a3b5;--blue:#7b9cc0;--sage:#98b394;--vio:#a799cf;--warn:#d1a56f}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+header,main{max-width:980px;margin:0 auto;padding:0 18px}
+header{padding-top:40px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+h1{font:700 2rem/1.2 "Trebuchet MS",system-ui,sans-serif;margin:0 0 8px;color:var(--blue)}
+h2{font:700 1.35rem/1.3 "Trebuchet MS",system-ui,sans-serif;color:var(--sage);margin:42px 0 10px}
+h3{font-size:1.02rem;margin:22px 0 6px;color:var(--vio)}
+p,li{max-width:76ch}
+.lede{color:var(--mut);max-width:70ch}
+nav{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 0 6px;font-size:.9rem}
+nav a{color:var(--blue);text-decoration:none}nav a:hover,nav a:focus{text-decoration:underline}
+pre,code{font-family:ui-monospace,Menlo,Consolas,monospace}
+code{background:var(--panel);padding:1px 5px;border-radius:3px;font-size:.88em}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px;overflow-x:auto;font-size:.8rem;line-height:1.45;margin:10px 0}
+.tw{overflow-x:auto;margin:10px 0}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:520px}
+th,td{border-bottom:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{color:var(--blue);font-weight:600}
+.note{border-left:3px solid var(--warn);background:var(--panel);padding:8px 14px;margin:14px 0;border-radius:0 4px 4px 0}
+.ok{border-left-color:var(--sage)}
+.calc{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:block;font-size:.8rem;color:var(--mut)}
+input{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:inherit}
+input:focus{outline:2px solid var(--blue);outline-offset:1px}
+.out{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.out div{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:8px 10px}
+.out b{display:block;color:var(--sage);font-size:1.1rem}
+.out span{font-size:.76rem;color:var(--mut)}
+canvas{max-height:300px;margin-top:14px}
+footer{max-width:980px;margin:48px auto 24px;padding:0 18px;color:var(--mut);font-size:.82rem}
+</style>
+</head>
+<body>
+<header>
+<h1>Isolated NTC node for 14S and 7S pack temperature monitoring</h1>
+<p class="lede">Design reference: 100 kΩ NTC sensing, ratiometric 24-bit ADC, floating MCU node per pack, reinforced isolation, RS-485 over 20–40 m to a PC. Part numbers are design picks; confirm pin names, registers and ratings against datasheets before layout.</p>
+<nav><a href="#arch">Architecture</a><a href="#mount">Mounting</a><a href="#afe">Analog front end</a><a href="#calc">Calculator</a><a href="#adc">ADC</a><a href="#power">Power</a><a href="#iso">Isolation &amp; bus</a><a href="#mcu">MCU &amp; firmware</a><a href="#safety">Safety</a><a href="#pcb">Layout</a><a href="#err">Error budget</a><a href="#cal">Calibration</a><a href="#bom">BOM</a><a href="#var">Variants</a></nav>
+</header>
+<main>
+
+<h2 id="arch">1. Architecture</h2>
+<p>One node sits beside each pack. Thermistor leads stay under about 3 m, and only digital data and a 24 V supply run the 20–40 m to the PC. Each node floats, so packs never share a ground through the DAQ.</p>
+<pre>PACK SIDE (floating)                                  | BUS SIDE (PC-referenced)
+NTC x8 -> PTC+TVS -> node N -> Rs/Cf -> ADS124S08      |
+          ^ Rref 100k from VEXC            | SPI       |
+cal-R + board NTC (self-check)             v           |
+                                       STM32G0 --UART--> ISOW7842 --> RS-485 --> Cat6 STP --> USB-RS485 --> PC
+                                           |           |  (data + isolated 5 V)      (A/B, +24 V, GND)
+                                  photoMOS "OK loop"   |  24 V in -> buck 5 V</pre>
+<div class="note ok"><b>Design decision.</b> Digital transport over the long run beats analog: a 100 kΩ source on 40 m of cable next to a charger picks up noise, and a single fault can tie two packs together through the sensor leads.</div>
+
+<h2 id="mount">2. Sensor selection and mounting</h2>
+<ul>
+<li><b>Part:</b> 100 kΩ, B≈3950, epoxy or glass bead (Semitec 104GT-2 class). Tolerance ±1 % raw gives about ±1 °C; 0.5 % or better parts reduce it.</li>
+<li><b>Base is a lagging indicator.</b> During charge the hot spots are the cell core, busbars and terminals. The base reads several °C lower and lags by minutes. Add thermistors on terminals and busbars, between cells where possible, near the BMS, and one for ambient. Plan 4–8 per pack.</li>
+<li><b>Fixing:</b> thermal epoxy or pad, a Kapton layer for insulation, and lead wire taped along the surface for 2–3 cm to avoid conduction error. Cover with a foam patch to reduce air influence.</li>
+<li><b>Insulation:</b> a thermistor on a pack is separated from pack potential only by its coating. Use coated parts, PTFE or silicone wire rated at least 100 V, and hi-pot at about 500 V DC.</li>
+<li><b>Charge window (typical Li-ion, check your cell datasheet):</b> charging is usually permitted about 0–45 °C. A sensible start: warn at 45 °C, alarm at 55 °C, alarm on any channel that rises faster than about 2 °C/min.</li>
+</ul>
+
+<h2 id="afe">3. Analog front end</h2>
+<h3>Ratiometric divider</h3>
+<p>VEXC feeds Rref (100 kΩ, 0.1 %, ≤25 ppm/°C thin film) into node N, and the NTC returns to AGND. The ADC reference is the same VEXC node, so supply drift and ADC gain error largely cancel.</p>
+<pre>r = V_N / VEXC = Rntc / (Rntc + Rref)       Rntc = Rref * r / (1 - r)
+1/T = 1/T0 + (1/B) ln(R/R0)                  (B model)
+1/T = A + B ln R + C (ln R)^3                (Steinhart-Hart)</pre>
+<h3>Per-channel circuit</h3>
+<pre>VEXC --[Rref 100k 0.1%]--+---- Rs 1k ----+--> AINx (PGA on, gain 1)
+                         |               |
+                         N            Cf 100 nF
+ J1.1 --[10 ohm PTC]-----+               |
+ (NTC top)               +-- TVS         AGND
+                         +-- Cn 100 nF
+ J1.2 (NTC return) ------------------------ AGND (one star point)</pre>
+<ul>
+<li><b>Rs/Cf:</b> Rs limits fault current into the ADC pin; Cf is a charge reservoir and filter. With a 25–77 kΩ source, the pole sits near 30–50 Hz, which suits a signal that moves over minutes.</li>
+<li><b>Cn:</b> RF decoupling at the connector, C0G or X7R (film if you want it very clean).</li>
+<li><b>TVS leakage:</b> require ≤10 nA at 3.3 V and 85 °C. 10 nA × 77 kΩ is about 0.025 °C, while a 100 nA part would give about 0.25 °C. If no low-leakage array fits, use series R plus two BAS116-class diodes to AVDD and AGND.</li>
+<li><b>10 Ω PTC or fusible resistor per line:</b> limits damage if a lead touches pack potential. It adds a constant 10 Ω (0.01 %) that calibration removes.</li>
+</ul>
+<h3>Operating points (B = 3950 model)</h3>
+<div class="tw"><table>
+<tr><th>T (°C)</th><th>Rntc</th><th>r</th><th>V_N @3.3 V</th><th>dV/dT</th><th>NTC power</th></tr>
+<tr><td>−10</td><td>≈580 kΩ</td><td>0.85</td><td>2.82 V</td><td>≈25 mV/°C</td><td>≈14 µW</td></tr>
+<tr><td>0</td><td>≈335 kΩ</td><td>0.77</td><td>2.54 V</td><td>≈31 mV/°C</td><td>≈19 µW</td></tr>
+<tr><td>25</td><td>100 kΩ</td><td>0.50</td><td>1.65 V</td><td>≈37 mV/°C</td><td>≈27 µW</td></tr>
+<tr><td>40</td><td>≈53 kΩ</td><td>0.35</td><td>1.14 V</td><td>≈29 mV/°C</td><td>≈25 µW</td></tr>
+<tr><td>60</td><td>≈25 kΩ</td><td>0.20</td><td>0.66 V</td><td>≈19 mV/°C</td><td>≈17 µW</td></tr>
+<tr><td>80</td><td>≈12.7 kΩ</td><td>0.11</td><td>0.37 V</td><td>≈10 mV/°C</td><td>≈11 µW</td></tr>
+</table></div>
+<p>Usable range with the PGA on is about −10 to +85 °C (it needs roughly 0.3 V of rail headroom). For hotter ranges, bypass the PGA or use a smaller Rref such as 33 kΩ. Worst-case self-heating is 0.02–0.03 °C in still air, a near-constant offset that calibration removes.</p>
+
+<h2 id="calc">4. Interactive calculator</h2>
+<div class="calc">
+<div class="grid">
+<label>R25 (Ω)<input id="r25" type="number" value="100000"></label>
+<label>B (K)<input id="bb" type="number" value="3950"></label>
+<label>Rref (Ω)<input id="rref" type="number" value="100000"></label>
+<label>VEXC (V)<input id="vex" type="number" step="0.1" value="3.3"></label>
+<label>Temperature (°C)<input id="tt" type="number" step="0.5" value="25"></label>
+<label>ADC noise (µV rms)<input id="nz" type="number" step="0.1" value="1.3"></label>
+<label>Dissipation const. (mW/°C)<input id="dc" type="number" step="0.1" value="1"></label>
+<label>Measured Rntc (Ω) → T<input id="rm" type="number" value="53000"></label>
+</div>
+<div class="out" aria-live="polite">
+<div><b id="o1">–</b><span>Rntc at temperature</span></div>
+<div><b id="o2">–</b><span>ratio r and node voltage</span></div>
+<div><b id="o3">–</b><span>sensitivity dV/dT</span></div>
+<div><b id="o4">–</b><span>NTC power and self-heating</span></div>
+<div><b id="o5">–</b><span>temperature resolution from ADC noise</span></div>
+<div><b id="o6">–</b><span>temperature from measured Rntc</span></div>
+</div>
+<canvas id="ch" aria-label="Node voltage and sensitivity versus temperature"></canvas>
+</div>
+
+<h2 id="adc">5. ADC configuration (ADS124S08 class)</h2>
+<ul>
+<li><b>Inputs:</b> single-ended, AINx versus AINCOM tied to AGND. Reference: REFP0 to VEXC, REFN0 to AGND (or the AVDD–AVSS option if available).</li>
+<li><b>Settings:</b> PGA on at gain 1, 20 SPS with the 50/60 Hz-rejecting filter, chop on for offset drift, internal offset self-calibration at start-up. Scan 10 channels in about 1–2 s.</li>
+<li><b>Decoupling:</b> AVDD 10 µF + 100 nF, reference pins 100 nF, DVDD 1 µF + 100 nF, AGND/DGND joined at one point under the ADC.</li>
+</ul>
+<div class="tw"><table>
+<tr><th>AIN</th><th>Use</th></tr>
+<tr><td>0–7</td><td>Pack NTCs</td></tr>
+<tr><td>8</td><td>Precision 100 kΩ 0.1 % through the same Rref topology; expect r = 0.500 ±0.001 (catches Rref or ADC drift every scan)</td></tr>
+<tr><td>9</td><td>On-board NTC (node temperature)</td></tr>
+<tr><td>10–11</td><td>Spare or ambient NTCs; also use the ADC's internal supply monitors</td></tr>
+</table></div>
+
+<h2 id="power">6. Power tree</h2>
+<pre>24 V bus -> PTC fuse -> SMBJ28A TVS -> reverse-polarity FET -> 5 V buck (TPS62933 / LMR14006)
+5 V bus -> ISOW7842 (VDD) -> 5 V isolated -+-> LDO 3.3 V digital (TLV75533) -> MCU
+                                           +-> LDO 3.3 V low noise (TPS7A2033) -> AVDD / VEXC</pre>
+<ul>
+<li><b>Load:</b> about 25–40 mA at 5 V on the isolated side. Check the ISOW load curve.</li>
+<li><b>Bus drop:</b> 40 m of Cat6 with paralleled conductors is about 2 Ω per leg. At 60 mA that is about 0.25 V.</li>
+<li><b>Heat:</b> ISOW and LDOs dissipate real power; keep them away from Rref and the on-board NTC.</li>
+<li><b>Alternative:</b> an isolated 24 V→5 V 1 W module (TRACO TMR 1 or RECOM R1SX class) plus a plain digital isolator, if its isolation rating is high enough.</li>
+</ul>
+
+<h2 id="iso">7. Isolation and RS-485 link</h2>
+<ul>
+<li><b>Isolator:</b> ISOW7842, or any variant giving two MCU→bus lines (TXD, DE/RE) and one bus→MCU line (RXD). Reinforced 5 kVrms with integrated DC-DC.</li>
+<li><b>Why reinforced:</b> a non-isolated charger can put the pack at mains-referenced potential. Treat the pack side as mains-hazardous.</li>
+<li><b>PCB:</b> slot under the isolator, no copper in the slot, ≥8 mm creepage and ≥4 mm clearance for mains-derived working voltage (pollution degree 2), separate GND_BUS and GND_ISO planes, optional Y capacitor 100 pF–1 nF between them.</li>
+<li><b>Transceiver:</b> slew-limited, ≥±15 kV ESD (THVD1450, THVD1500, SN65HVD72, MAX3485E class). 115200 baud is plenty over 40 m.</li>
+<li><b>Bus protection:</b> SM712 TVS on A/B, optional 10 Ω series PTCs, common-mode choke in noisy sites.</li>
+<li><b>Topology:</b> daisy chain from the PC. 120 Ω termination at both ends (jumper per node), 680 Ω bias at the master end only.</li>
+</ul>
+<div class="tw"><table>
+<tr><th>Cat6 STP pair</th><th>Use</th></tr>
+<tr><td>1</td><td>A / B</td></tr><tr><td>2</td><td>+24 V (both conductors)</td></tr><tr><td>3</td><td>GND (both conductors)</td></tr><tr><td>4</td><td>Spare</td></tr>
+</table></div>
+<p>Shield: tie to bus GND at the PC end only, and through 1 nF || 1 MΩ at the node end. For a PC-side adapter, an isolated USB-RS485 unit adds another layer of ground-loop protection.</p>
+
+<h2 id="mcu">8. MCU and firmware</h2>
+<div class="tw"><table>
+<tr><th>STM32G031/G071 pin</th><th>Function</th></tr>
+<tr><td>USART2 TX / RX / DE</td><td>To ISOW (hardware RS-485 driver enable)</td></tr>
+<tr><td>SPI1 SCK / MISO / MOSI + CS</td><td>ADC</td></tr>
+<tr><td>EXTI, GPIO</td><td>ADC DRDY, START/SYNC, RESET</td></tr>
+<tr><td>GPIO (via 330 Ω)</td><td>photoMOS LED drive</td></tr>
+<tr><td>4× GPIO</td><td>Address DIP switch (Modbus ID)</td></tr>
+<tr><td>GPIO, SWD</td><td>Status LED, programming header</td></tr>
+</table></div>
+<ul>
+<li><b>Loop (~1 Hz):</b> scan, median or average, fault checks, update registers. Enable the independent watchdog. Keep calibration in a CRC-protected flash page.</li>
+<li><b>Fault checks:</b> open lead (r near 1), short (r near 0), implausible rate of change, channel 8 outside tolerance, supply monitors.</li>
+<li><b>Steinhart–Hart from three points (L = ln R, Y = 1/T in K):</b></li>
+</ul>
+<pre>g2 = (Y2-Y1)/(L2-L1);  g3 = (Y3-Y1)/(L3-L1)
+C  = (g3-g2)/(L3-L2) / (L1+L2+L3)
+B  = g2 - C*(L1^2 + L1*L2 + L2^2)
+A  = Y1 - (B + C*L1^2)*L1</pre>
+<h3>Modbus RTU register map (proposal)</h3>
+<div class="tw"><table>
+<tr><th>Type</th><th>Address</th><th>Content</th></tr>
+<tr><td>Input</td><td>0–9</td><td>Temperature, °C × 100 (int16), channels 0–9</td></tr>
+<tr><td>Input</td><td>10–19</td><td>Status word per channel (open, short, rate, stale)</td></tr>
+<tr><td>Input</td><td>20–39</td><td>Raw 24-bit ratio per channel (two registers each)</td></tr>
+<tr><td>Input</td><td>40</td><td>Node status: alarm latched, OK-loop state, self-test result, uptime</td></tr>
+<tr><td>Holding</td><td>0–9</td><td>Alarm thresholds, °C × 100</td></tr>
+<tr><td>Holding</td><td>10–29</td><td>Per-channel offset and gain; A/B/C or B</td></tr>
+<tr><td>Holding</td><td>30</td><td>Poll timeout (s) before fail-safe</td></tr>
+</table></div>
+<p><b>PC side:</b> Python with <code>pymodbus</code>, poll at 1 Hz, log to CSV or InfluxDB with Grafana, recompute temperature from the raw ratio with current calibration, and raise a stale-data alarm if a node stops answering (a dead node must never look like a cool battery).</p>
+
+<h2 id="safety">9. Safety and fail-safe behavior</h2>
+<ul>
+<li><b>OK loop:</b> a 60–100 V photoMOS held <i>closed while healthy</i>; it opens on alarm, sensor fault, poll timeout, or power loss. Wire it in series with a charger or BMS interlock if available.</li>
+<li><b>This is monitoring, not protection.</b> Keep the pack's BMS and an independent hardware cutoff (thermal fuse or thermostat in the charge path).</li>
+<li><b>Floating node, plastic enclosure.</b> A first fault such as a lead touching the pack is then harmless to the PC. A second fault across two different leads is why each line has the PTC.</li>
+</ul>
+
+<h2 id="pcb">10. PCB layout</h2>
+<ul>
+<li>4 layers: signal, GND, power, signal.</li>
+<li>Short, symmetric ADC input traces with AGND guard traces.</li>
+<li>Rref resistors in one row, same orientation and thermal environment, away from heat.</li>
+<li>Wash flux thoroughly before any conformal coat; surface leakage matters at these impedances.</li>
+<li>Pluggable 3.5 mm keyed terminals labeled per channel, strain relief, plastic enclosure.</li>
+</ul>
+
+<h2 id="err">11. Error budget (after per-channel calibration)</h2>
+<div class="tw"><table>
+<tr><th>Source</th><th>Error</th></tr>
+<tr><td>Rref tolerance (0.1 %)</td><td>≈0.02 °C raw, calibrated out</td></tr>
+<tr><td>Rref TC (25 ppm over ±10 °C)</td><td>≈0.006 °C</td></tr>
+<tr><td>TVS and PCB leakage</td><td>≈0.005–0.02 °C</td></tr>
+<tr><td>Self-heating</td><td>≈0.02–0.03 °C (constant)</td></tr>
+<tr><td>ADC noise and offset</td><td>&lt;0.001 °C</td></tr>
+<tr><td>Thermistor tolerance and B</td><td>±0.2–0.5 °C raw, ≈0.1 °C calibrated</td></tr>
+<tr><td><b>Mounting and thermal contact</b></td><td><b>0.5 °C or more, usually dominant</b></td></tr>
+</table></div>
+
+<h2 id="cal">12. Calibration and test plan</h2>
+<ol>
+<li><b>Resistor box:</b> substitute 10 k, 33 k, 100 k and 330 kΩ precision resistors on each input; verify r and computed R.</li>
+<li><b>Water bath:</b> seal NTCs in thin-walled tubing or waterproof heat-shrink; put them in a stirred bath with a calibrated reference thermometer at about 0 °C, 25 °C and 55–60 °C; fit per-channel coefficients.</li>
+<li><b>Fault injection:</b> open and short each channel, unplug the bus mid-poll, cut power; confirm the OK loop opens every time.</li>
+<li><b>EMC:</b> run next to the charger at full power. Fix noise with a larger Cn, a ferrite, or cable rerouting.</li>
+<li><b>Soak:</b> 24 h logging of the cal-resistor channel; r should stay within ±0.001.</li>
+</ol>
+
+<h2 id="bom">13. Core BOM</h2>
+<div class="tw"><table>
+<tr><th>Function</th><th>Part</th></tr>
+<tr><td>ADC</td><td>ADS124S08</td></tr>
+<tr><td>MCU</td><td>STM32G031K8 or G071</td></tr>
+<tr><td>Isolator with power</td><td>ISOW7842</td></tr>
+<tr><td>RS-485 transceiver</td><td>THVD1450 / THVD1500 / SN65HVD72</td></tr>
+<tr><td>Bus-side buck</td><td>TPS62933 or LMR14006</td></tr>
+<tr><td>LDOs</td><td>TLV75533 (digital), TPS7A2033 (analog)</td></tr>
+<tr><td>Rref</td><td>Susumu RG1608P-1003-B (0.1 %, 25 ppm)</td></tr>
+<tr><td>TVS</td><td>SMBJ28A (24 V), SM712 (RS-485), low-leakage array on sensor lines</td></tr>
+<tr><td>Output</td><td>60–100 V photoMOS (AQY or G3VM class)</td></tr>
+<tr><td>NTC</td><td>Semitec 104GT-2 class, 100 kΩ B3950</td></tr>
+</table></div>
+
+<h2 id="var">14. Variants</h2>
+<ul>
+<li><b>Long analog runs (no node):</b> measure differentially across the NTC (AINP on top, AINN on bottom), same Rref and reference. Use shielded twisted pair per sensor with the shield grounded at the DAQ end only, 1 µF-class filtering, TVS at the connector and a PTC per line. Wire resistance error is negligible, but pickup rises and packs share the DAQ ground.</li>
+<li><b>Integrated alternatives:</b> LTC2983 handles thermistor linearization and fault detection on-chip. ADM2587E gives an isolated RS-485 transceiver with integrated power for the bus side only.</li>
+<li><b>Wireless:</b> avoid next to chargers unless you accept dropouts; if used, keep the same isolated sensor node and fail-safe logic.</li>
+</ul>
+</main>
+<footer>Values are for a B=3950 model and typical parts; verify against vendor tables and datasheets, and against your cell and charger specifications.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+function rn(T,r25,B){return r25*Math.exp(B*(1/(T+273.15)-1/298.15))}
+function tOf(R,r25,B){return 1/(1/298.15+Math.log(R/r25)/B)-273.15}
+var chart=null;
+function fmt(x,d){return isFinite(x)?x.toFixed(d):'–'}
+function run(){
+ var r25=+$('r25').value,B=+$('bb').value,rf=+$('rref').value,V=+$('vex').value,T=+$('tt').value,nz=+$('nz').value,dc=+$('dc').value,rm=+$('rm').value;
+ var R=rn(T,r25,B),r=R/(R+rf),vn=r*V;
+ var dr=r*(1-r)*B/Math.pow(T+273.15,2),sl=dr*V*1000;
+ var P=vn*vn/R*1e6,sh=P/1000/dc;
+ $('o1').textContent=fmt(R/1000,2)+' kΩ';
+ $('o2').textContent=fmt(r,3)+' / '+fmt(vn,3)+' V';
+ $('o3').textContent=fmt(sl,1)+' mV/°C';
+ $('o4').textContent=fmt(P,1)+' µW / '+fmt(sh,3)+' °C';
+ $('o5').textContent=fmt(nz/1000/sl,5)+' °C';
+ $('o6').textContent=fmt(tOf(rm,r25,B),2)+' °C';
+ var xs=[],v=[],s=[];
+ for(var t=-20;t<=100;t+=5){var Rt=rn(t,r25,B),rr=Rt/(Rt+rf);xs.push(t);v.push(+(rr*V).toFixed(4));s.push(+(rr*(1-rr)*B/Math.pow(t+273.15,2)*V*1000).toFixed(2))}
+ if(typeof Chart==='undefined')return;
+ var cs=getComputedStyle(document.documentElement),c1=cs.getPropertyValue('--blue').trim(),c2=cs.getPropertyValue('--sage').trim(),gr=cs.getPropertyValue('--line').trim(),tx=cs.getPropertyValue('--mut').trim();
+ var cfg={type:'line',data:{labels:xs,datasets:[
+  {label:'Node voltage (V)',data:v,borderColor:c1,backgroundColor:c1,pointRadius:0,yAxisID:'y',tension:.25},
+  {label:'Sensitivity (mV/°C)',data:s,borderColor:c2,backgroundColor:c2,pointRadius:0,yAxisID:'y1',tension:.25}]},
+  options:{responsive:true,animation:false,interaction:{mode:'index',intersect:false},
+  scales:{x:{title:{display:true,text:'Temperature (°C)',color:tx},ticks:{color:tx},grid:{color:gr}},
+  y:{title:{display:true,text:'V',color:tx},ticks:{color:tx},grid:{color:gr}},
+  y1:{position:'right',title:{display:true,text:'mV/°C',color:tx},ticks:{color:tx},grid:{display:false}}},
+  plugins:{legend:{labels:{color:tx}}}}};
+ if(chart){chart.data=cfg.data;chart.options=cfg.options;chart.update()}else{chart=new Chart($('ch'),cfg)}
+}
+['r25','bb','rref','vex','tt','nz','dc','rm'].forEach(function(i){$(i).addEventListener('input',run)});
+window.addEventListener('load',run);run();
+})();
+</script>
+</body>
+</html>
