@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>16-Channel Multiplexed ADC Design Guide - ADS7953-Q1 + STM32</title>
+<style>
+:root{
+ --bg:#f4f7fb;--panel:#fff;--ink:#172033;--muted:#5d687c;--line:#dce3ee;
+ --blue:#155eef;--blue-soft:#eaf1ff;--teal:#087e8b;--teal-soft:#e8f7f8;
+ --amber:#8a5200;--amber-soft:#fff5df;--red:#a12b2b;--red-soft:#fff0f0;
+ --code:#101827;--shadow:0 8px 26px rgba(24,39,75,.07);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{background:linear-gradient(135deg,#10254b,#174b83);color:white;padding:54px 22px 42px}
+.hero{max-width:1120px;margin:auto}
+.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.76rem;font-weight:700;opacity:.8}
+h1{font-size:clamp(2rem,4vw,3.2rem);line-height:1.12;margin:.6rem 0 1rem}
+header p{max-width:850px;color:#dbe8ff;margin:0;font-size:1.08rem}
+main{max-width:1120px;margin:28px auto;padding:0 20px 70px}
+nav.toc,.card,.callout,.diagram,.table-wrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+nav.toc{padding:20px 24px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:8px}
+nav.toc ol{columns:2;margin:0;padding-left:22px}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+section{margin:34px 0}
+h2{font-size:1.65rem;line-height:1.25;margin:0 0 14px}
+h3{font-size:1.16rem;margin:24px 0 8px}
+p{margin:10px 0}
+.lead{font-size:1.06rem;color:#354158}
+.card{padding:22px;margin:16px 0}
+.callout{padding:16px 18px;margin:16px 0;box-shadow:none}
+.callout.info{background:var(--blue-soft);border-color:#c8d8ff}
+.callout.warn{background:var(--amber-soft);border-color:#f0d79e}
+.callout.danger{background:var(--red-soft);border-color:#f2caca}
+.callout.good{background:var(--teal-soft);border-color:#bfe6e8}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.tile{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff}
+.tile b{display:block;font-size:1.03rem}
+small,.muted{color:var(--muted)}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#f0f4fa;font-size:.9rem}
+tr:last-child td{border-bottom:0}
+.table-wrap{overflow-x:auto;margin:14px 0}
+.diagram{padding:18px;overflow-x:auto}
+.flow{display:flex;align-items:center;justify-content:center;gap:9px;min-width:720px}
+.block{border:1.5px solid #aabbd5;border-radius:10px;padding:14px 12px;text-align:center;background:#f8fbff;min-width:130px;font-weight:650}
+.block.blue{background:var(--blue-soft);border-color:#9bb9ff}
+.block.teal{background:var(--teal-soft);border-color:#91d2d7}
+.arrow{font-size:1.5rem;color:#65748b}
+.stack{display:grid;gap:8px;max-width:760px;margin:auto}
+.stack .block{width:100%}
+.code{background:var(--code);color:#e7edf7;border-radius:12px;padding:18px;overflow:auto;font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre}
+.pill{display:inline-block;background:#eaf1ff;color:#1749a2;padding:3px 9px;border-radius:999px;font-size:.78rem;font-weight:700}
+.kpi{font-size:1.5rem;font-weight:750;color:#1749a2}
+ul,ol{padding-left:24px}
+li{margin:5px 0}
+hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+footer{color:var(--muted);font-size:.9rem;border-top:1px solid var(--line);padding-top:20px;margin-top:45px}
+@media(max-width:680px){nav.toc ol{columns:1}.flow{justify-content:flex-start}.card{padding:17px}th,td{padding:9px}}
+@media print{body{background:white}header{background:#17365f!important;print-color-adjust:exact}.card,.callout,.diagram,.toc{box-shadow:none;break-inside:avoid}a{color:inherit;text-decoration:underline}}
+</style>
+</head>
+<body>
+<header>
+ <div class="hero">
+  <div class="eyebrow">Embedded hardware engineering • design note</div>
+  <h1>Designing a 16-Channel Analogue Data-Acquisition Front End</h1>
+  <p>Practical integration guide for a multiplexed SAR ADC such as the Texas Instruments ADS7953-Q1, interfaced to an STM32 over SPI. Covers architecture, analogue conditioning, power/reference, grounding, firmware sequencing, PCB layout, validation and qualification.</p>
+ </div>
+</header>
+<main>
+<nav class="toc">
+ <strong>Contents</strong>
+ <ol>
+  <li><a href="#scope">Purpose and assumptions</a></li>
+  <li><a href="#architecture">System architecture</a></li>
+  <li><a href="#operation">How the ADC works</a></li>
+  <li><a href="#inputs">Analogue input design</a></li>
+  <li><a href="#adc-passives">ADS7953 passive components</a></li>
+  <li><a href="#power">Power and reference</a></li>
+  <li><a href="#spi">STM32 / SPI interface</a></li>
+  <li><a href="#firmware">Firmware and channel scanning</a></li>
+  <li><a href="#calculations">Conversion calculations</a></li>
+  <li><a href="#pcb">PCB layout and EMC</a></li>
+  <li><a href="#protection">Fault protection and safety</a></li>
+  <li><a href="#verification">Bring-up and validation</a></li>
+  <li><a href="#qualification">Automotive / defence qualification</a></li>
+  <li><a href="#checklist">Design checklist</a></li>
+  <li><a href="#sources">References</a></li>
+ </ol>
+</nav>
+
+<section id="scope">
+<h2>1. Purpose and design assumptions</h2>
+<p class="lead">The objective is to measure up to 16 analogue signals using one ADC IC. The ADC contains an internal 16:1 multiplexer, a sample-and-hold network, a SAR conversion engine and a serial digital interface. The STM32 selects channels or configures a scan sequence, clocks data over SPI, and stores calibrated measurements.</p>
+<div class="callout warn"><b>Important component verification:</b> Treat this document as an architecture and design guide, not a released schematic. Before layout or procurement, verify the exact ADS7953-Q1 orderable variant, pin names, supply limits, input ranges, reference configuration, SPI timing, command format and automotive qualification status against the latest TI datasheet and product page. Do not copy pin voltages or register bit fields from a generic ADC example.</div>
+<div class="grid">
+ <div class="tile"><b>ADC family</b><span class="pill">Example device</span><p>ADS7953-Q1, 16-channel, 12-bit multiplexed SAR ADC with serial interface.</p></div>
+ <div class="tile"><b>Controller</b><p>STM32 with an SPI peripheral and one GPIO for chip-select.</p></div>
+ <div class="tile"><b>Sampling mode</b><p>Sequential channel sampling; not simultaneous sampling of all 16 channels.</p></div>
+ <div class="tile"><b>Input type</b><p>Assume voltage-output sensors initially. Current-loop, bridge, thermocouple and RTD sensors need dedicated front ends.</p></div>
+</div>
+</section>
+
+<section id="architecture">
+<h2>2. System architecture</h2>
+<div class="diagram">
+ <div class="flow">
+  <div class="block">Sensor 0<br>…<br>Sensor 15</div><div class="arrow">-></div>
+  <div class="block">Protection<br>and filtering</div><div class="arrow">-></div>
+  <div class="block blue">16:1 MUX<br>+ SAR ADC</div><div class="arrow">-></div>
+  <div class="block teal">SPI</div><div class="arrow">-></div>
+  <div class="block">STM32<br>DMA / firmware</div>
+ </div>
+ <p class="muted" style="text-align:center;margin-bottom:0">Conceptual signal path. Power, reference, ground, reset and optional alert signals are omitted for clarity.</p>
+</div>
+<h3>Functional blocks</h3>
+<ol>
+ <li><b>Sensor interface:</b> provides the voltage or conditioned signal representing the physical quantity.</li>
+ <li><b>Protection:</b> limits damage from ESD, wiring faults, overvoltage and transients.</li>
+ <li><b>Signal conditioning:</b> scales, offsets, buffers and filters the signal to fit the ADC input range.</li>
+ <li><b>ADC:</b> selects one channel, samples its voltage, converts it to a digital code and shifts the result out.</li>
+ <li><b>STM32:</b> configures the ADC, controls chip-select and SCLK, receives data and converts codes into engineering units.</li>
+</ol>
+<div class="callout info"><b>Key system decision:</b> A multiplexed ADC samples channels one after another. If the application needs phase-aligned samples across channels-for example, control-loop measurements of rapidly changing motor phase signals-consider simultaneous-sampling ADCs or multiple synchronised ADCs instead.</div>
+</section>
+
+<section id="operation">
+<h2>3. How the multiplexed ADC works</h2>
+<div class="diagram">
+ <div class="stack">
+  <div class="block">CH0 CH1 CH2 … CH15</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block blue">Internal 16:1 analogue multiplexer</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block">Sample-and-hold / acquisition capacitor</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block blue">12-bit SAR conversion engine</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block teal">Serial output register -> SPI -> STM32</div>
+ </div>
+</div>
+<p>The multiplexer connects one selected input to the ADC's internal sampling network. During the acquisition interval, the sampling capacitor charges toward the input voltage. The ADC then holds that voltage and performs a successive-approximation conversion. The result is a digital code that is shifted to the MCU through the serial interface.</p>
+<h3>Sequential example</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Scan slot</th><th>Selected input</th><th>Illustrative voltage</th><th>Firmware destination</th></tr></thead>
+<tbody>
+<tr><td>0</td><td>CH0</td><td>1.25 V</td><td>adc_raw[0]</td></tr>
+<tr><td>1</td><td>CH1</td><td>2.10 V</td><td>adc_raw[1]</td></tr>
+<tr><td>2</td><td>CH2</td><td>0.85 V</td><td>adc_raw[2]</td></tr>
+<tr><td>3</td><td>CH3</td><td>3.20 V</td><td>adc_raw[3]</td></tr>
+<tr><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>15</td><td>CH15</td><td>2.75 V</td><td>adc_raw[15]</td></tr>
+</tbody></table></div>
+<p>The exact command/response relationship is device-specific. Some ADCs pipeline conversion results: a frame may transmit a command for the next channel while returning the result from the previously selected channel. Firmware must follow the ADS7953-Q1 timing diagram and tag each received word with the correct channel. Discard or ignore invalid startup data as described by the datasheet.</p>
+</section>
+
+<section id="inputs">
+<h2>4. Analogue input design</h2>
+<p>Do not connect every sensor directly to the ADC without checking its output range, source impedance, bandwidth, fault behaviour and grounding. Design each channel against the worst-case electrical conditions-not just the nominal sensor voltage.</p>
+<h3>4.1 Recommended channel structure</h3>
+<div class="diagram">
+ <div class="stack">
+  <div class="block">Sensor output</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block">Connector / series impedance / fault protection</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block">RC anti-alias / RF filter</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block">Optional precision buffer or gain/level-shift stage</div>
+  <div class="arrow" style="text-align:center">down</div>
+  <div class="block blue">ADC input CHx</div>
+ </div>
+</div>
+<h3>4.2 Input range and scaling</h3>
+<ul>
+ <li>Establish the ADC's configured input range and absolute maximum ratings from the datasheet.</li>
+ <li>Keep normal sensor output, tolerance, supply variation, startup overshoot and fault recovery within the permitted input range.</li>
+ <li>If a sensor outputs 0-10 V but the ADC accepts at most 0-5 V, use a precision divider or amplifier stage. Include resistor tolerance, temperature coefficient, input leakage and protection leakage in the error budget.</li>
+ <li>For bipolar signals, use an appropriate bipolar-capable ADC/front end or level-shift the signal into the ADC's allowed unipolar range. Never apply a negative voltage unless explicitly allowed.</li>
+ <li>Do not assume the ADC input range is the same as its analogue supply voltage or reference voltage.</li>
+</ul>
+<h3>4.3 RC filter design</h3>
+<p>A simple first-order low-pass filter uses a series resistance and a capacitor to analogue ground. Its approximate cutoff frequency is:</p>
+<div class="code">fc = 1 / (2 × π × R × C)</div>
+<p>Example only: R = 1 kΩ and C = 100 nF gives fc ≈ 1.59 kHz. This may attenuate high-frequency noise, but it is not automatically a good value for every ADC input. The source impedance plus filter resistance must allow the ADC sampling capacitor to settle during the acquisition time.</p>
+<div class="callout warn"><b>Multiplexer settling:</b> When the MUX switches from a low voltage to a high voltage channel, the input network must settle before conversion. A large series resistor or capacitor can cause channel-to-channel memory/crosstalk or conversion error. Check the ADC's acquisition time, input capacitance, leakage, recommended drive circuit and settling requirements. A buffer may be necessary.</div>
+<h3>4.4 When to use an op-amp buffer</h3>
+<ul>
+ <li>Sensor output impedance is high.</li>
+ <li>Sensor cannot drive the ADC's switched-capacitor input.</li>
+ <li>Long cable capacitance or a heavy filter creates slow settling.</li>
+ <li>Gain, attenuation, differential-to-single-ended conversion or level shifting is required.</li>
+</ul>
+<p>Select an amplifier for input common-mode range, output swing, offset, bias current, noise, bandwidth, slew rate, stability with capacitive loads, supply voltage and temperature grade. Confirm it can settle to the required accuracy within the available acquisition interval.</p>
+<h3>4.5 Sensor-specific front ends</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Sensor type</th><th>Typical requirement</th><th>Design note</th></tr></thead>
+<tbody>
+<tr><td>0-5 V pressure / position sensor</td><td>Scale, filter, protect</td><td>Check sensor output tolerance and whether its ground is shared with the controller.</td></tr>
+<tr><td>NTC thermistor</td><td>Precision excitation / divider</td><td>Use a stable resistor, calculate self-heating, linearise with beta or Steinhart-Hart equation.</td></tr>
+<tr><td>RTD</td><td>Constant-current excitation or precision bridge</td><td>Consider 2-, 3- or 4-wire lead compensation. A dedicated RTD front end may be preferable.</td></tr>
+<tr><td>Thermocouple</td><td>Low-noise gain and cold-junction compensation</td><td>Microvolt-level signal; use a dedicated thermocouple front end or precision amplifier and CJC sensor.</td></tr>
+<tr><td>Current shunt</td><td>Differential amplifier / current-sense amplifier</td><td>Check common-mode voltage, shunt power, polarity and transient range.</td></tr>
+<tr><td>Bridge sensor</td><td>Differential instrumentation amplifier</td><td>ADC single-ended inputs may need a differential-to-single-ended stage.</td></tr>
+</tbody></table></div>
+</section>
+
+
+<section id="adc-passives">
+<h2>5A. Passive components directly around the ADS7953-Q1</h2>
+<p class="lead">This section adds the device-specific passive network called out in TI's ADS79xx-Q1 datasheet. The supply and reference capacitors below are explicitly specified by TI, while the per-channel capacitors are part of TI's recommended input-settling application circuit.</p>
+<div class="callout good"><b>Core ADS7953-Q1 passive population:</b> two 1-uF capacitors for the two +VA pins, one 1-uF capacitor for +VBD, one 10-uF capacitor from REFP to REFM, and one 150-pF capacitor from each of the 16 channel inputs to the analogue ground return as shown in TI's typical unbuffered-MXO circuit. Add optional series resistors / protection only after checking the sensor source and fault environment.</div>
+<h3>5A.1 Device-level capacitor and resistor list</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Reference designator (suggested)</th><th>Value / type</th><th>Connection</th><th>Purpose / design notes</th></tr></thead>
+<tbody>
+<tr><td>CVA1</td><td>1 uF ceramic, X7R/X7S</td><td>+VA pin 5 to AGND</td><td>Required local analogue-supply decoupling. Place directly beside pin 5.</td></tr>
+<tr><td>CVA2</td><td>1 uF ceramic, X7R/X7S</td><td>+VA pin 29 to AGND</td><td>Second +VA pin also needs local decoupling. Do not assume one distant capacitor adequately decouples both pins.</td></tr>
+<tr><td>CVBD</td><td>1 uF ceramic, X7R/X7S</td><td>+VBD pin 36 to BDGND / recommended local ground region</td><td>Required digital-I/O supply decoupling. Keep the loop short.</td></tr>
+<tr><td>CREF</td><td>10 uF ceramic</td><td>REFP pin 4 to REFM pin 3</td><td>Required reference bypass capacitor. Place immediately next to pins 4 and 3; route its return directly to REFM with a very short trace.</td></tr>
+<tr><td>C0…C15</td><td>150 pF ceramic, C0G/NP0 preferred where practical</td><td>Each CH0…CH15 input to analogue ground</td><td>Shown in TI's typical unbuffered-MXO application to absorb channel-switch charge kickback. Verify source-impedance/throughput limits; this is not a universal anti-alias filter value.</td></tr>
+<tr><td>RSCLK (optional)</td><td>Small series resistor; tune from measurement</td><td>STM32 SCLK source, close to the driving pin</td><td>Optional damping if SCLK ringing is observed. TI advises a small series resistor rather than a capacitor on SCLK.</td></tr>
+<tr><td>RINx (optional)</td><td>Calculated series resistor per input</td><td>Sensor connector / protection network to CHx</td><td>Limits fault current and can form a filter with Cx. Value depends on sensor impedance, fault voltage, clamp leakage and settling-time budget.</td></tr>
+</tbody></table></div>
+<div class="callout warn"><b>Do not add a capacitor to MXO.</b> TI explicitly warns that capacitance on the MXO pin can interfere with settling when the internal multiplexer changes channels. Also do not put a capacitor directly on SCLK; if clock ringing exists, investigate routing and consider a small source-series resistor.</div>
+<h3>5A.2 Simplified ADS7953-Q1 local passive connection sketch</h3>
+<div class="diagram">
+ <div class="stack">
+  <div class="block">+VA pin 5 ── CVA1 1 uF ── AGND<br>+VA pin 29 ─ CVA2 1 uF ── AGND</div>
+  <div class="block">+VBD pin 36 ─ CVBD 1 uF ── BDGND / ground region</div>
+  <div class="block blue">REFP pin 4 ── CREF 10 uF ── REFM pin 3</div>
+  <div class="block">CH0…CH15 ── each Cx 150 pF ── analogue ground return</div>
+  <div class="block">STM32 SCLK ── optional RSCLK ── ADS7953 SCLK pin 32</div>
+ </div>
+ <p class="muted" style="text-align:center;margin-bottom:0">Conceptual connections only. Follow TI's layout figure and exact pinout for the 38-pin TSSOP package.</p>
+</div>
+<h3>5A.3 Why TI shows 150 pF on every channel</h3>
+<p>The ADS79xx-Q1 has an internal input capacitance of approximately 15 pF. When the multiplexer switches channels, charge associated with the previous channel can disturb the newly selected input. TI explains that a 150-pF capacitor at each channel input reduces the initial disturbance, after which the sensor/source must settle the remaining error within the acquisition time.</p>
+<p>For the unbuffered-MXO example, TI gives source-impedance limits for 12-bit settling at 1 MSPS of approximately 100 Ω in the 1×REF range and 250 Ω in the 2×REF range. These are conditions from the datasheet's example, not blanket limits for every scan rate or circuit. The allowable source impedance changes with sampling rate and input range.</p>
+<div class="callout danger"><b>Important:</b> a 150-pF channel capacitor is not a substitute for a properly calculated anti-alias filter, and it does not mean you can use a high-value series resistor without checking settling. If the sensor has high output impedance, use an appropriate buffer or reduce the scan rate / acquisition demands as supported by the datasheet. Test worst-case channel transitions (near 0 V to near full-scale and back).</div>
+<h3>5A.4 Optional input resistor and protection population</h3>
+<p>For each external input, you may need a series resistor, clamp/TVS device, connector-side filtering or an amplifier. These are system-level components, not mandatory fixed-value ADS7953 parts.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Component</th><th>When to fit</th><th>Selection rules</th></tr></thead>
+<tbody>
+<tr><td>Series resistor</td><td>External cable, fault-current limitation, divider/filter network</td><td>Calculate from worst-case fault voltage and clamp current. Include its resistance in the ADC settling analysis.</td></tr>
+<tr><td>Low-leakage clamp / TVS</td><td>External connector exposed to ESD or transients</td><td>Choose standoff and clamp voltage so the ADC pin remains within absolute maximum ratings. Check leakage and capacitance at temperature.</td></tr>
+<tr><td>Precision divider</td><td>Sensor range exceeds selected ADC range</td><td>Calculate ratio, tolerance, TCR, power, input impedance and calibration error. Check that the divider can settle the ADC input.</td></tr>
+<tr><td>Op-amp buffer</td><td>High source impedance, cable capacitance, demanding settling or scaling</td><td>Check input/output range, offset, noise, bandwidth, slew rate, stability and ability to drive the recommended load.</td></tr>
+<tr><td>Additional bulk rail capacitor</td><td>Regulator transient response or board-level rail impedance requires it</td><td>Size from regulator stability and power-distribution analysis. It does not replace local 1-uF capacitors at the ADC pins.</td></tr>
+</tbody></table></div>
+<h3>5A.5 Layout rules for these passives</h3>
+<ul>
+ <li>Place CVA1, CVA2 and CVBD directly beside their respective supply pins. Keep capacitor-to-pin and capacitor-to-ground paths short and wide.</li>
+ <li>Place CREF directly beside REFP and REFM. Connect its ground terminal to REFM with a very short route; do not put a via between the capacitor and the ADC pin.</li>
+ <li>Place each 150-pF channel capacitor close to the corresponding input pin / channel trace, with a short low-inductance return to the analogue ground region.</li>
+ <li>Keep analogue input traces and filter components on the analogue side of the ADC. Keep SCLK, SDI, SDO and MCU routing on the digital side.</li>
+ <li>TI's layout guidance shows an analogue-ground copper fill under the IC tying AGND, BDGND, AINM and REFM, with multiple vias to the analogue ground plane. Follow the datasheet's exact ground layout example rather than splitting the plane arbitrarily.</li>
+ <li>Do not place vias between the local decoupling capacitor and the corresponding device pin where TI advises against them.</li>
+</ul>
+<h3>5A.6 Practical starter BOM for the ADC IC only</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Qty</th><th>Item</th><th>Starter specification</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>2</td><td>+VA decoupling capacitors</td><td>1 uF ceramic each, X7R/X7S</td><td>Datasheet-required</td></tr>
+<tr><td>1</td><td>+VBD decoupling capacitor</td><td>1 uF ceramic, X7R/X7S</td><td>Datasheet-required</td></tr>
+<tr><td>1</td><td>Reference bypass capacitor</td><td>10 uF ceramic, REFP-to-REFM</td><td>Datasheet-required</td></tr>
+<tr><td>16</td><td>Channel charge-kickback capacitors</td><td>150 pF each, CHx-to-analogue-ground</td><td>TI typical circuit</td></tr>
+<tr><td>1</td><td>SCLK series resistor footprint</td><td>Populate only if signal integrity requires it; value determined by measurement</td><td>Optional</td></tr>
+<tr><td>16</td><td>Input series resistor footprints</td><td>Value determined by sensor, protection and settling analysis</td><td>Application-dependent</td></tr>
+</tbody></table></div>
+<p><b>Reference source:</b> TI ADS79xx-Q1 datasheet, sections 8.3.3-8.3.4, 9.1-9.3, 10 and 11; see Figures 58, 61 and 64. Choose capacitor package, dielectric, voltage rating and derated effective capacitance from the component manufacturer's datasheet.</p>
+</section>
+
+<section id="power">
+<h2>5. Power supply and voltage reference</h2>
+<p>Power pins, reference pins and allowable voltages must be taken from the exact device datasheet. Avoid treating generic example voltages as guaranteed pin connections.</p>
+<h3>5.1 Power tree</h3>
+<div class="diagram">
+ <div class="flow">
+  <div class="block">Input power</div><div class="arrow">-></div>
+  <div class="block">Regulators<br>and filtering</div><div class="arrow">-></div>
+  <div class="block blue">ADC analogue<br>and digital rails</div>
+ </div>
+ <p style="text-align:center;margin:14px 0 0" class="muted">A precision reference is a separate block with its own load, decoupling and routing requirements.</p>
+</div>
+<ul>
+ <li>Confirm all ADC supply rails, sequencing requirements and recommended operating ranges.</li>
+ <li>Use local ceramic bypass capacitors at each supply pin, placed close to the pins with short return paths. Add bulk capacitance where required by the datasheet and regulator stability needs.</li>
+ <li>Keep high-current digital return paths from flowing through sensitive analogue input/reference areas.</li>
+ <li>Use a low-noise regulator or filtered rail where the ADC performance requires it. Check PSRR over the actual switching-regulator noise spectrum.</li>
+</ul>
+<h3>5.2 Reference selection</h3>
+<p>The reference voltage sets the conversion scale. Reference initial accuracy, temperature drift, noise, long-term stability, load regulation, output drive and startup behaviour all affect measurement accuracy.</p>
+<ul>
+ <li>Select a reference whose output and drive capability meet the ADC reference input specification.</li>
+ <li>Follow the datasheet's reference bypass capacitor value, dielectric and placement guidance.</li>
+ <li>Do not add a large capacitor or buffer blindly; reference inputs may have dynamic loading and stability constraints.</li>
+ <li>Route the reference as a quiet analogue net, away from SCLK and switching nodes.</li>
+ <li>Consider measuring a precision calibration source or monitoring the reference in production/test if system accuracy requires it.</li>
+</ul>
+<div class="callout danger"><b>Correction to avoid a common mistake:</b> Do not assume “5 V analogue supply + 3.3 V digital supply + 2.5 V reference” is the correct wiring for every ADS7953-Q1 variant. Verify the exact pin names, rail ranges and reference mode in the current datasheet before making a schematic.</div>
+</section>
+
+<section id="spi">
+<h2>6. STM32 SPI hardware interface</h2>
+<div class="diagram">
+ <div class="flow">
+  <div class="block teal">STM32<br>SPI master</div><div class="arrow">⇄</div>
+  <div class="block blue">ADC<br>SPI slave</div>
+ </div>
+ <div class="table-wrap"><table>
+ <thead><tr><th>Signal</th><th>Direction (STM32 view)</th><th>Purpose</th></tr></thead>
+ <tbody>
+ <tr><td>SCLK</td><td>Output</td><td>Serial clock generated by MCU.</td></tr>
+ <tr><td>MOSI / SDI</td><td>Output</td><td>Command/configuration bits sent to ADC.</td></tr>
+ <tr><td>MISO / SDO</td><td>Input</td><td>Conversion/status data returned by ADC.</td></tr>
+ <tr><td>CS / frame sync</td><td>GPIO output</td><td>Frames the transfer; idle state and edge timing per datasheet.</td></tr>
+ <tr><td>RESET / CONVST / BUSY, if present</td><td>Device-dependent</td><td>Connect only as required by the selected ADC operating mode.</td></tr>
+ </tbody></table></div>
+</div>
+<h3>6.1 SPI configuration</h3>
+<p>Set SPI clock polarity (CPOL), phase (CPHA), maximum clock frequency, bit order and frame length exactly as specified in the ADC datasheet. Do not guess SPI mode 0 or mode 1. Confirm the timing diagram for the selected part and operating mode.</p>
+<ul>
+ <li>Use a GPIO-controlled CS if it gives clearer control over frame timing.</li>
+ <li>Keep CS low for the exact frame length required by the ADC; observe setup/hold and minimum high-time requirements.</li>
+ <li>Check logic-level compatibility. The ADC digital I/O rail determines its input thresholds and output levels.</li>
+ <li>Use modest SCLK initially during bring-up; increase only after confirming timing margin and signal integrity.</li>
+ <li>Use a logic analyser or oscilloscope to verify CS, SCLK, MOSI and MISO.</li>
+</ul>
+<h3>6.2 Frame timing and pipelining</h3>
+<p>Some multiplexed ADCs return the conversion result for the channel selected in the previous frame while accepting a new channel command in the current frame. This is called pipelining. Firmware must maintain a “requested channel” versus “result channel” association. Read the ADS7953-Q1 datasheet's exact frame diagrams, command format and startup behaviour.</p>
+</section>
+
+<section id="firmware">
+<h2>7. Firmware structure for STM32</h2>
+<h3>7.1 Recommended software layers</h3>
+<ol>
+ <li><b>Low-level SPI driver:</b> transfers a frame and handles timeout/error conditions.</li>
+ <li><b>ADC driver:</b> builds device-specific command words, decodes response words and manages the channel pipeline.</li>
+ <li><b>Acquisition manager:</b> scans configured channels and timestamps sample sets.</li>
+ <li><b>Signal processing:</b> converts raw codes to volts and engineering units, applies calibration and filtering.</li>
+ <li><b>Application layer:</b> uses measurements for monitoring, logging or control.</li>
+</ol>
+<h3>7.2 Illustrative pseudocode</h3>
+<div class="code">#define ADC_CHANNELS 16
+
+uint16_t adc_raw[ADC_CHANNELS];
+float    adc_voltage[ADC_CHANNELS];
+
+void acquire_all_channels(void)
+{
+    /*
+     * Device-specific:
+     * 1. Build the ADS7953-Q1 command for a channel.
+     * 2. Assert CS and transfer the required frame.
+     * 3. Decode the response belonging to the previous selection
+     *    if the device's pipeline requires this.
+     * 4. Associate each result with the correct channel.
+     *
+     * This is pseudocode, not a drop-in ADS7953 register driver.
+     */
+
+    for (uint8_t ch = 0; ch < ADC_CHANNELS; ch++)
+    {
+        uint16_t tx_word = build_adc_command(ch);
+        uint16_t rx_word = spi_transfer_16bit(tx_word);
+
+        process_response_using_datasheet_pipeline(rx_word);
+    }
+
+    /* Flush/complete the final pending conversion as required
+       by the device's documented sequencing. */
+}</div>
+<h3>7.3 Data conversion</h3>
+<div class="code">/* Illustrative only: confirm the ADC's exact coding and range. */
+float code_to_voltage(uint16_t code,
+                      float full_scale_voltage)
+{
+    return ((float)(code & 0x0FFF) / 4095.0f)
+           * full_scale_voltage;
+}</div>
+<h3>7.4 DMA and timing</h3>
+<ul>
+ <li>For low channel rates, blocking SPI transfers may be sufficient and easier to debug.</li>
+ <li>For frequent scans, use SPI DMA to reduce CPU load. Keep TX and RX buffers correctly aligned and sized for the frame format.</li>
+ <li>Use a timer to schedule scan cycles rather than relying on software delays.</li>
+ <li>Use a timestamp per scan set if data will be compared over time.</li>
+ <li>Check for SPI overrun, timeout, DMA errors and missed acquisition deadlines.</li>
+ <li>Do not assume that a single 16-frame scan samples all channels at the same instant.</li>
+</ul>
+</section>
+
+<section id="calculations">
+<h2>8. ADC resolution and measurement calculations</h2>
+<p>For an ideal 12-bit ADC with a unipolar 0-5 V input range, the number of output codes is 2<sup>12</sup> = 4096. The ideal code width is approximately:</p>
+<div class="code">LSB = Full-scale range / 4096
+    = 5 V / 4096
+    ≈ 1.2207 mV</div>
+<p>Using an ideal straight-binary transfer approximation, a 1.25 V input corresponds to:</p>
+<div class="code">Code ≈ (1.25 / 5.0) × 4095
+     ≈ 1024</div>
+<p>The exact transfer function, endpoint convention, coding and full-scale definition must be confirmed in the ADC datasheet. Resolution is not the same as accuracy: reference error, offset, gain error, INL, noise, resistor tolerance and sensor error all contribute.</p>
+<h3>8.1 Error budget</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Error source</th><th>How to control it</th></tr></thead>
+<tbody>
+<tr><td>ADC offset / gain / INL</td><td>Use datasheet limits; calibrate if necessary.</td></tr>
+<tr><td>Reference tolerance and drift</td><td>Choose an appropriate reference and account for drift.</td></tr>
+<tr><td>Divider tolerance / drift</td><td>Use precision low-TCR resistors and calibration.</td></tr>
+<tr><td>Amplifier offset / bias / noise</td><td>Select suitable amplifier; include it in error analysis.</td></tr>
+<tr><td>Sensor accuracy and repeatability</td><td>Use sensor specification and system calibration.</td></tr>
+<tr><td>Thermal gradients / PCB leakage</td><td>Layout, cleanliness, guard strategy where justified.</td></tr>
+<tr><td>Multiplexer settling / crosstalk</td><td>Ensure acquisition settling and sensible channel ordering.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="pcb">
+<h2>9. PCB layout, grounding and EMC</h2>
+<h3>9.1 Placement strategy</h3>
+<ul>
+ <li>Place the ADC close to the analogue input connector or front-end circuitry to minimise high-impedance trace length.</li>
+ <li>Place local decoupling capacitors immediately adjacent to their supply pins.</li>
+ <li>Place the reference close to the ADC reference pins and follow the reference manufacturer's layout guidance.</li>
+ <li>Keep the MCU and fast digital buses far enough from sensitive analogue nodes to reduce coupling.</li>
+ <li>Keep switching regulator inductors, switch nodes, gate-drive loops and high-current paths away from the ADC inputs and reference.</li>
+</ul>
+<h3>9.2 Grounding</h3>
+<p>Prefer a continuous, low-impedance ground reference plane with controlled return-current paths. Partition placement and routing by function rather than automatically splitting the ground plane. If separate analogue and digital ground pins exist, connect them as the ADC manufacturer recommends. Avoid routing digital return currents through the analogue input area.</p>
+<h3>9.3 SPI signal integrity</h3>
+<ul>
+ <li>Route SCLK with a clean return path and avoid unnecessary stubs.</li>
+ <li>Keep SPI traces away from high-impedance analogue input traces.</li>
+ <li>Consider small source-series resistors on fast digital outputs only if signal-integrity analysis or measurement indicates ringing; do not add values blindly.</li>
+ <li>Check overshoot, undershoot, rise time and setup/hold at the ADC pins.</li>
+</ul>
+<h3>9.4 Connectors and cables</h3>
+<p>External sensor wiring can carry ESD, EFT, surge, ground-offset and conducted RF disturbances. Place protection close to the connector, provide a deliberate chassis/ground return strategy, and verify that protection-device capacitance and leakage do not degrade the analogue measurement.</p>
+</section>
+
+<section id="protection">
+<h2>10. Protection and fault handling</h2>
+<p>Protection must be designed from the actual electrical environment and applicable system requirements. A series resistor alone does not make an input robust.</p>
+<ul>
+ <li>Define normal operating range, maximum continuous voltage, transient waveform, reverse polarity and open/short sensor faults.</li>
+ <li>Choose TVS, clamps, series impedance and current limiting so the ADC pin never exceeds absolute maximum ratings during specified faults.</li>
+ <li>Check clamp leakage over temperature; leakage can create measurement errors on high-impedance sensor inputs.</li>
+ <li>Check protection capacitance against signal bandwidth and ADC settling.</li>
+ <li>Consider input disconnect or current-limiting circuitry for faults that could damage the shared ADC or other channels.</li>
+ <li>Implement plausibility checks, range checks, stuck-at detection, open-wire detection where feasible, and timeout/error flags.</li>
+</ul>
+<div class="callout danger"><b>Safety:</b> Do not connect unknown external signals directly to a development board or ADC. Measure and characterise the source first. Ensure all input voltages, including transient and power-off conditions, remain within the device's absolute maximum limits.</div>
+</section>
+
+<section id="verification">
+<h2>11. Hardware bring-up and validation plan</h2>
+<ol>
+ <li><b>Power-only test:</b> verify every rail, sequencing, ripple and current consumption before connecting sensors.</li>
+ <li><b>Reference test:</b> measure reference voltage at the ADC pin using a suitable meter; check startup and stability.</li>
+ <li><b>Digital test:</b> read documented device registers/status where supported; verify SPI mode, frame length and timing with a logic analyser.</li>
+ <li><b>Known-voltage test:</b> apply a precision voltage to one channel and compare raw code against the expected transfer function.</li>
+ <li><b>All-channel test:</b> apply different stable voltages to each channel and confirm channel mapping.</li>
+ <li><b>Settling test:</b> alternate channels between near-zero and near-full-scale inputs; check for memory effects and crosstalk.</li>
+ <li><b>Noise test:</b> short or terminate inputs as recommended and record noise distribution.</li>
+ <li><b>Temperature test:</b> measure offset/gain drift over the intended operating temperature range.</li>
+ <li><b>Fault test:</b> test open circuit, short circuit and defined transient cases using a controlled test setup.</li>
+ <li><b>System test:</b> test with actual sensors, cable lengths, power converters and radio/compute activity enabled.</li>
+</ol>
+<h3>Suggested test matrix</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Test</th><th>Stimulus</th><th>Pass criterion</th></tr></thead>
+<tbody>
+<tr><td>Channel identity</td><td>Unique voltage on each input</td><td>Every code appears in the correct channel slot.</td></tr>
+<tr><td>Linearity / gain</td><td>Several precision input voltages</td><td>Error within allocated system budget.</td></tr>
+<tr><td>Channel crosstalk</td><td>Toggle one channel while neighbours are fixed</td><td>Neighbour error within allocated limit.</td></tr>
+<tr><td>Noise</td><td>Stable low-noise input</td><td>RMS / peak-to-peak noise within requirement.</td></tr>
+<tr><td>Scan timing</td><td>Continuous full scan</td><td>Required sample rate achieved with no dropped frames.</td></tr>
+<tr><td>EMC susceptibility</td><td>Applicable conducted/radiated tests</td><td>No unsafe behaviour or unacceptable measurement corruption.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="qualification">
+<h2>12. Automotive and defence qualification considerations</h2>
+<p>AEC-Q100 is an automotive IC qualification framework. MIL-STD-883 is a military microcircuit test method standard. These are not interchangeable labels, and neither one by itself qualifies the complete circuit board or end equipment.</p>
+<ul>
+ <li>For automotive selection, verify the exact orderable part number, AEC-Q100 grade, temperature range, qualification report and product change notification process.</li>
+ <li>For defence/aerospace use, establish the required screening level, traceability, lot acceptance, temperature range, radiation requirements if applicable, and approved parts process with the customer/programme.</li>
+ <li>An “EP” or enhanced-product offering should not be represented as MIL-STD-883 qualified unless the manufacturer documentation explicitly supports the required qualification and screening.</li>
+ <li>Check lifecycle status, country of origin requirements, counterfeit avoidance, approved distributor traceability and long-term availability.</li>
+ <li>System qualification may include environmental, vibration, shock, humidity, temperature cycling, EMC/EMI, power transients and functional safety/reliability tests depending on the programme.</li>
+</ul>
+<div class="callout warn"><b>Procurement rule:</b> Ask the manufacturer or authorised distributor for written confirmation against the exact part number and revision. Do not rely on a marketplace listing or a generic family-level statement.</div>
+</section>
+
+<section id="checklist">
+<h2>13. Design checklist before schematic release</h2>
+<div class="card">
+<ul>
+ <li>☐ Confirm all 16 sensor output ranges and fault conditions.</li>
+ <li>☐ Confirm ADC input range and absolute maximum ratings.</li>
+ <li>☐ Confirm whether sequential sampling is acceptable.</li>
+ <li>☐ Calculate required per-channel sample rate and scan timing.</li>
+ <li>☐ Check sensor source impedance and ADC acquisition settling.</li>
+ <li>☐ Design per-channel scaling, filtering and protection.</li>
+ <li>☐ Select reference and regulators using datasheet requirements.</li>
+ <li>☐ Verify MCU/ADC logic-level compatibility.</li>
+ <li>☐ Confirm SPI mode, clock limit, frame length and pipeline behaviour.</li>
+ <li>☐ Plan calibration and total error budget.</li>
+ <li>☐ Review ground returns, placement, decoupling and EMC.</li>
+ <li>☐ Define test points and production test strategy.</li>
+ <li>☐ Confirm exact automotive/defence qualification and traceability needs.</li>
+ <li>☐ Review schematic against the latest manufacturer datasheet before PCB layout.</li>
+</ul>
+</div>
+</section>
+
+<section id="sources">
+<h2>14. Manufacturer references</h2>
+<ul>
+ <li><a href="https://www.ti.com/product/ADS7953-Q1" target="_blank" rel="noopener">Texas Instruments - ADS7953-Q1 product page</a></li>
+ <li><a href="https://www.ti.com/lit/ds/symlink/ads7953-q1.pdf" target="_blank" rel="noopener">Texas Instruments - ADS7953-Q1 datasheet (PDF)</a></li>
+ <li><a href="https://www.ti.com/lit/an/slaa" target="_blank" rel="noopener">TI application notes - consult device-specific SAR ADC drive, reference and layout guidance</a></li>
+ <li><a href="https://www.analog.com/en/resources/technical-articles.html" target="_blank" rel="noopener">Analog Devices technical articles - SAR ADC front-end and driver design background</a></li>
+ <li><a href="https://www.aecouncil.com/" target="_blank" rel="noopener">Automotive Electronics Council - AEC qualification information</a></li>
+ <li><a href="https://quicksearch.dla.mil/" target="_blank" rel="noopener">US DLA Quick Search - official defence standards lookup</a></li>
+</ul>
+<p class="muted">This guide is educational engineering guidance. It is not a certified design, safety assessment, qualification report or substitute for the current component datasheet and programme requirements. All example values and diagrams are conceptual unless explicitly stated otherwise.</p>
+</section>
+
+<footer>
+ <b>Document:</b> 16-channel multiplexed ADC design guide<br>
+ <b>Example architecture:</b> ADS7953-Q1 + STM32 + SPI<br>
+ <b>Revision:</b> 1.0 • Prepared 13 November 2026
+</footer>
+</main>
+</body>
+</html>
